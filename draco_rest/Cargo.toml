@@ -1,0 +1,9 @@
+[package]
+name = "draco_rest"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+draco_base = { workspace = true }
+code0-flow = { workspace = true }
+tokio = { version = "1.44.1", features = ["rt-multi-thread"] }
