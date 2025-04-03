@@ -1,0 +1,8 @@
+[workspace]
+members = ["draco_rest", "draco_base"]
+
+[workspace.dependencies]
+code0-flow = { version = "0.0.3", features = ["all"] }
+
+[workspace.dependencies.draco_base]
+path = "../draco/draco_base"
