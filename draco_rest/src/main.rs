@@ -1,5 +1,6 @@
-use std::io::prelude::*;
+use std::io::{prelude::*, BufReader};
 use std::net::{TcpListener, TcpStream};
+use std::str::FromStr;
 use std::sync::Arc;
 
 use code0_flow::flow_store::connection::create_flow_store_connection;
@@ -34,68 +35,70 @@ async fn handle_connection(
     mut stream: TcpStream,
     flow_client_service: Arc<Mutex<FlowStoreService>>,
 ) {
-    // Create a buffer to read the request into
-    let mut buffer = [0; 1024];
+    let buf_reader = BufReader::new(&stream);
+    let raw_http_request: Vec<String> = buf_reader
+        .lines()
+        .map(|result| result.unwrap())
+        .take_while(|line| !line.is_empty())
+        .collect();
 
-    // Read from the stream into our buffer
-    stream.read(&mut buffer).unwrap();
+    let http_request = parse_request(raw_http_request);
 
-    // Convert the buffer to a string
-    let request = String::from_utf8_lossy(&buffer[..]);
+    println!("Request: {:#?}", http_request);
 
-    // Extract the request method and URL
-    let request_line = request.lines().next().unwrap_or("");
-    let parts: Vec<&str> = request_line.split_whitespace().collect();
+    let response = "HTTP/1.1 200 OK\r\n\r\n";
 
-    if parts.len() >= 2 {
-        let method = parts[0]; // GET, POST, etc.
-        let url = parts[1]; // /path, /index.html, etc.
+    stream.write_all(response.as_bytes()).unwrap();
+}
 
-        println!("Request type: {}", method);
-        println!("URL: {}", url);
+#[derive(Debug)]
+enum HttpOption {
+    GET,
+    POST,
+    PUT,
+    DELETE,
+}
 
-        // Process based on request method
-        match method {
-            "GET" => {
-                // Parse query parameters if present
-                if let Some(query_start) = url.find('?') {
-                    let query_str = &url[query_start + 1..];
-                    println!("Query string: {}", query_str);
+impl FromStr for HttpOption {
+    type Err = ();
 
-                    // Parse and print individual query parameters
-                    for param in query_str.split('&') {
-                        println!("Query param: {}", param);
-                    }
-                }
-            }
-            "POST" => {
-                // Extract the body from the request
-                if let Some(body_start) = request.find("\r\n\r\n") {
-                    let body = &request[body_start + 4..];
-                    println!("POST body: {}", body.trim_end_matches('\0'));
-                } else {
-                    println!("No body found in POST request");
-                }
-            }
-            _ => {}
-        }
-    } else {
-        println!("Could not parse request line: {}", request_line);
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        return match s {
+            "GET" => Ok(HttpOption::GET),
+            "POST" => Ok(HttpOption::POST),
+            "PUT" => Ok(HttpOption::PUT),
+            "DELETE" => Ok(HttpOption::DELETE),
+            _ => Err(()),
+        };
+    }
+}
+
+#[derive(Debug)]
+struct HttpRequest {
+    method: HttpOption,
+    path: String,
+    version: String,
+    headers: Vec<String>,
+}
+
+fn parse_request(raw_http_request: Vec<String>) -> HttpRequest {
+    let params = &raw_http_request[0];
+
+    if params.is_empty() {
+        panic!("TODO")
     }
 
-    // Send a simple response
-    let response = "HTTP/1.1 200 OK\r\n\r\nRequest received and parsed";
+    let mut header_params = params.split(" ");
+    let raw_method = header_params.next().unwrap();
+    let path = header_params.next().unwrap();
+    let version = header_params.next().unwrap();
 
-    {
-        let mut service = flow_client_service.lock().await;
-        let ids = service.get_all_flow_ids().await.unwrap();
-        print!("{}", ids.len())
+    let method = HttpOption::from_str(raw_method).unwrap();
 
-        //TODO: Verfiy flow exists & request has correct body!
-    }
-
-    //TODO: RabbitMQ Send and recieve
-
-    stream.write(response.as_bytes()).unwrap();
-    stream.flush().unwrap();
+    return HttpRequest {
+        method,
+        path: path.to_string(),
+        version: version.to_string(),
+        headers: Vec::new(),
+    };
 }
