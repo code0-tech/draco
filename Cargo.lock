@@ -731,7 +731,13 @@ version = "0.1.0"
 dependencies = [
  "code0-flow",
  "draco_base",
+ "futures-lite 2.6.0",
+ "lapin",
+ "redis",
+ "serde",
+ "serde_json",
  "tokio",
+ "tucana",
 ]
 
 [[package]]
@@ -1958,6 +1964,8 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "ryu",
+ "serde",
+ "serde_json",
  "sha1_smol",
  "socket2 0.5.9",
  "tokio",

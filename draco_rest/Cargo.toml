@@ -7,3 +7,14 @@ edition = "2021"
 draco_base = { workspace = true }
 code0-flow = { workspace = true }
 tokio = { version = "1.44.1", features = ["rt-multi-thread"] }
+redis = { version = "0.28.0", features = [
+    "aio",
+    "tokio-comp",
+    "async-std-comp",
+    "json",
+] }
+tucana = { workspace = true }
+serde_json = { workspace = true }
+lapin = "2.5.0"
+serde = "1.0.219"
+futures-lite = "2.6.0"
