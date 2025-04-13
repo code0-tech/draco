@@ -1,0 +1,10 @@
+[package]
+name = "draco_body"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tucana = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
+regex = "1.11.1"
