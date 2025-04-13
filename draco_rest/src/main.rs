@@ -1,5 +1,8 @@
 pub mod http;
 
+use code0_flow::flow_store::connection::{create_flow_store_connection, FlowStore};
+use draco_base::FromEnv;
+use draco_body::verify_flow;
 use futures_lite::StreamExt;
 use http::http::{HttpOption, HttpRequest};
 use lapin::options::QueueDeclareOptions;
@@ -13,11 +16,12 @@ use std::net::{TcpListener, TcpStream};
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tucana::sagittarius::FlowSetting;
-
-use code0_flow::flow_store::connection::{create_flow_store_connection, FlowStore};
-use draco_base::FromEnv;
-use tucana::shared::Value;
+use tucana::shared::value::Kind;
+use tucana::shared::{
+    DataType, DataTypeRule, Flow, Flows, NodeFunctionDefinition, NodeParameter,
+    NodeParameterDefinition, Value,
+};
+use tucana::shared::{FlowSetting, FlowSettingDefinition};
 
 // Custom error that wraps lapin::Error or a default Rust error
 #[derive(Debug)]
@@ -226,30 +230,6 @@ impl RabbitmqClient {
     }
 }
 
-#[tokio::main]
-async fn main() {
-    let config = Config::from_file("./.env");
-    let url = format!("127.0.0.1:{}", config.port);
-    let listener = TcpListener::bind(url).unwrap();
-
-    // Note: Should use config.redis_url instead of hardcoded value
-    let flow_store = create_flow_store_connection(String::from("redis://localhost:6379")).await;
-
-    // Create a thread-safe RabbitMQ client
-    let rabbitmq_client = Arc::new(RabbitmqClient::new("amqp://localhost:5672").await);
-
-    // Listen for incoming TCP connections
-    for stream in listener.incoming() {
-        let stream = stream.unwrap();
-        let flow_store_clone = flow_store.clone();
-        let rabbitmq_client_clone = rabbitmq_client.clone();
-
-        tokio::spawn(async move {
-            handle_connection(stream, flow_store_clone, rabbitmq_client_clone).await;
-        });
-    }
-}
-
 async fn handle_connection(
     mut stream: TcpStream,
     flow_store: FlowStore,
@@ -281,15 +261,39 @@ async fn handle_connection(
     // Check if a flow exists for the given settings
     let flow_exists = check_flow_exists(&flow_store, &settings_json).await;
 
-    //TODO: Body verification of the incomming request (only json for now)
-
     // Send appropriate response
     let response = if flow_exists.0 {
         let flow = match flow_exists.1 {
-            Some(flow) => flow,
+            Some(flow) => match serde_json::from_str::<Vec<Flow>>(flow.as_str()) {
+                Ok(c) => c[0].clone(),
+                Err(err) => {
+                    println!("Problems parsing: {}", flow);
+                    let response = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
+                    println!("Flow cant be parsed {}", err);
+                    stream.write_all(response.as_bytes()).unwrap();
+                    return;
+                }
+            },
             None => {
                 let response = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
                 println!("Flow not found");
+                stream.write_all(response.as_bytes()).unwrap();
+                return;
+            }
+        };
+
+        //TODO: Body verification of the incomming request (only json for now)
+        match verify_flow(flow.clone(), http_request.body.unwrap()) {
+            Ok(_) => {
+                print!("Body is correct")
+            }
+            Err(err) => {
+                let reason = err.to_string();
+                let json_response =
+                    format!("{{\"error\":\"Invalid body\",\"reason\":\"{}\"}}", reason);
+                let response = format!("HTTP/1.1 400 Bad Request\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+                    json_response.len(),
+                    json_response);
                 stream.write_all(response.as_bytes()).unwrap();
                 return;
             }
@@ -307,7 +311,7 @@ async fn handle_connection(
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_secs() as i64,
-            body: flow,
+            body: format!("{:?}", flow),
         };
 
         let message_json = serde_json::to_string(&message).unwrap();
@@ -336,31 +340,14 @@ async fn handle_connection(
     stream.write_all(response.as_bytes()).unwrap();
 }
 
-// Parse an HTTP stream into a structured request
-fn parse_http_stream(stream: &TcpStream) -> Result<HttpRequest, String> {
-    let buf_reader = BufReader::new(stream);
-    let raw_http_request: Vec<String> = buf_reader
-        .lines()
-        .map(|result| result.unwrap())
-        .take_while(|line| !line.is_empty())
-        .collect();
-
-    let http_request = parse_request(raw_http_request);
-    println!("Request: {:#?}", http_request);
-
-    // Validate HTTP version
-    if http_request.version != "HTTP/1.1" {
-        return Err("HTTP/1.1 400 Bad Request\r\n\r\n".to_string());
-    }
-
-    Ok(http_request)
-}
-
 // Create flow settings from an HTTP request
 fn create_flow_settings(http_request: &HttpRequest) -> Vec<FlowSetting> {
     vec![
         FlowSetting {
-            definition: "HTTP_METHOD".to_string(),
+            definition: Some(FlowSettingDefinition {
+                id: "some_database_id".to_string(),
+                key: "HTTP_METHOD".to_string(),
+            }),
             object: Some(tucana::shared::Struct {
                 fields: HashMap::from([(
                     String::from("method"),
@@ -373,7 +360,10 @@ fn create_flow_settings(http_request: &HttpRequest) -> Vec<FlowSetting> {
             }),
         },
         FlowSetting {
-            definition: "URL".to_string(),
+            definition: Some(FlowSettingDefinition {
+                id: "some_database_id".to_string(),
+                key: "URL".to_string(),
+            }),
             object: Some(tucana::shared::Struct {
                 fields: HashMap::from([(
                     String::from("url"),
@@ -421,6 +411,57 @@ async fn check_flow_exists(flow_store: &FlowStore, settings_json: &str) -> (bool
 
     (false, None)
 }
+// Parse an HTTP stream into a structured request
+fn parse_http_stream(stream: &TcpStream) -> Result<HttpRequest, String> {
+    let mut buf_reader = BufReader::new(stream);
+
+    // Read headers
+    let mut raw_http_request: Vec<String> = Vec::new();
+    let mut line = String::new();
+
+    // Read headers until empty line
+    while let Ok(bytes) = buf_reader.read_line(&mut line) {
+        if bytes == 0 || line.trim().is_empty() {
+            break;
+        }
+        raw_http_request.push(line.trim().to_string());
+        line.clear();
+    }
+
+    // Parse headers
+    let mut http_request = parse_request(raw_http_request);
+
+    // Read body if Content-Length is specified
+    for header in &http_request.headers {
+        if header.to_lowercase().starts_with("content-length:") {
+            let content_length: usize = header
+                .split(':')
+                .nth(1)
+                .and_then(|s| s.trim().parse().ok())
+                .unwrap_or(0);
+
+            if content_length > 0 {
+                let mut body = vec![0; content_length];
+                if let Ok(_) = buf_reader.read_exact(&mut body) {
+                    // Parse JSON body
+                    if let Ok(json_value) = serde_json::from_slice::<serde_json::Value>(&body) {
+                        http_request.body = Some(json_value);
+                    }
+                }
+            }
+            break;
+        }
+    }
+
+    println!("Request: {:#?}", http_request);
+
+    // Validate HTTP version
+    if http_request.version != "HTTP/1.1" {
+        return Err("HTTP/1.1 400 Bad Request\r\n\r\n".to_string());
+    }
+
+    Ok(http_request)
+}
 
 // Parse raw HTTP request strings into structured HttpRequest
 fn parse_request(raw_http_request: Vec<String>) -> HttpRequest {
@@ -442,6 +483,28 @@ fn parse_request(raw_http_request: Vec<String>) -> HttpRequest {
         method,
         path: path.to_string(),
         version: version.to_string(),
-        headers: Vec::new(),
+        headers: raw_http_request.clone(),
+        body: None,
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    let config = Config::from_file("./.env");
+    let url = format!("127.0.0.1:{}", config.port);
+    let listener = TcpListener::bind(url).unwrap();
+
+    let flow_store = create_flow_store_connection(config.redis_url).await;
+    let rabbitmq_client = Arc::new(RabbitmqClient::new(config.rabbitmq_url.as_str()).await);
+
+    // Listen for incoming TCP connections
+    for stream in listener.incoming() {
+        let stream = stream.unwrap();
+        let flow_store_clone = flow_store.clone();
+        let rabbitmq_client_clone = rabbitmq_client.clone();
+
+        tokio::spawn(async move {
+            handle_connection(stream, flow_store_clone, rabbitmq_client_clone).await;
+        });
     }
 }
