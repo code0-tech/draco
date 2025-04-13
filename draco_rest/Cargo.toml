@@ -8,7 +8,7 @@ draco_base = { workspace = true }
 draco_body = { workspace = true }
 code0-flow = { workspace = true }
 tokio = { version = "1.44.1", features = ["rt-multi-thread"] }
-redis = { version = "0.28.0", features = [
+redis = { version = "0.29.0", features = [
     "aio",
     "tokio-comp",
     "async-std-comp",
