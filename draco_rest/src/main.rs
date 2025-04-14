@@ -1,233 +1,29 @@
 pub mod http;
 
+use code0_flow::flow_queue::service::{Message, MessageType, RabbitmqClient, Sender};
 use code0_flow::flow_store::connection::{create_flow_store_connection, FlowStore};
 use draco_base::FromEnv;
 use draco_validator::resolver::flow_resolver::resolve_flow;
 use draco_validator::verify_flow;
-use futures_lite::StreamExt;
 use http::http::{HttpOption, HttpRequest};
-use lapin::options::QueueDeclareOptions;
-use lapin::types::FieldTable;
-use lapin::{Channel, Connection};
 use redis::{AsyncCommands, JsonAsyncCommands};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{prelude::*, BufReader};
 use std::net::{TcpListener, TcpStream};
 use std::str::FromStr;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use std::time::Duration;
 use tucana::shared::{
     DataType, DataTypeRule, Flow, NodeFunctionDefinition, NodeParameter, NodeParameterDefinition,
-    Struct, Value,
+    Value,
 };
 use tucana::shared::{FlowSetting, FlowSettingDefinition};
 
-// Custom error that wraps lapin::Error or a default Rust error
-#[derive(Debug)]
-enum RabbitMqError {
-    LapinError(lapin::Error),
-    ConnectionError(String),
-    TimeoutError,
-    DeserializationError,
-}
-
-impl From<lapin::Error> for RabbitMqError {
-    fn from(error: lapin::Error) -> Self {
-        RabbitMqError::LapinError(error)
-    }
-}
-
-impl From<std::io::Error> for RabbitMqError {
-    fn from(error: std::io::Error) -> Self {
-        RabbitMqError::ConnectionError(error.to_string())
-    }
-}
-
-impl std::fmt::Display for RabbitMqError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            RabbitMqError::LapinError(err) => write!(f, "RabbitMQ error: {}", err),
-            RabbitMqError::ConnectionError(msg) => write!(f, "Connection error: {}", msg),
-            RabbitMqError::TimeoutError => write!(f, "Operation timed out"),
-            RabbitMqError::DeserializationError => write!(f, "Failed to deserialize message"),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-enum MessageType {
-    ExecuteFlow,
-    TestExecuteFlow,
-}
-
-#[derive(Serialize, Deserialize)]
-struct Sender {
-    name: String,
-    protocol: String,
-    version: String,
-}
-
-#[derive(Serialize, Deserialize)]
-struct Message {
-    message_type: MessageType,
-    sender: Sender,
-    timestamp: i64,
-    telegram_id: String,
-    body: String,
-}
-
-// Configuration struct loaded from environment file
 #[derive(FromEnv)]
 struct Config {
     port: u16,
     redis_url: String,
     rabbitmq_url: String,
-}
-
-async fn build_connection(rabbitmq_url: &str) -> Connection {
-    match Connection::connect(rabbitmq_url, lapin::ConnectionProperties::default()).await {
-        Ok(env) => env,
-        Err(error) => panic!(
-            "Cannot connect to FlowQueue (RabbitMQ) instance! Reason: {:?}",
-            error
-        ),
-    }
-}
-
-// Thread-safe wrapper for RabbitMQ channel
-struct RabbitmqClient {
-    channel: Arc<Mutex<Channel>>,
-}
-
-impl RabbitmqClient {
-    // Create a new RabbitMQ client with channel
-    async fn new(rabbitmq_url: &str) -> Self {
-        let connection = build_connection(rabbitmq_url).await;
-        let channel = connection.create_channel().await.unwrap();
-
-        // Declare the queue once during initialization
-        channel
-            .queue_declare(
-                "send_queue",
-                QueueDeclareOptions::default(),
-                FieldTable::default(),
-            )
-            .await
-            .unwrap();
-
-        channel
-            .queue_declare(
-                "recieve_queue",
-                QueueDeclareOptions::default(),
-                FieldTable::default(),
-            )
-            .await
-            .unwrap();
-
-        RabbitmqClient {
-            channel: Arc::new(Mutex::new(channel)),
-        }
-    }
-
-    // Send message to the queue
-    async fn send_message(
-        &self,
-        message_json: String,
-        queue_name: &str,
-    ) -> Result<(), lapin::Error> {
-        let channel = self.channel.lock().await;
-
-        channel
-            .basic_publish(
-                "",         // exchange
-                queue_name, // routing key (queue name)
-                lapin::options::BasicPublishOptions::default(),
-                message_json.as_bytes(),
-                lapin::BasicProperties::default(),
-            )
-            .await?;
-
-        Ok(())
-    }
-
-    // Receive messages from a queue
-    async fn receive_messages(
-        &self,
-        queue_name: &str,
-        telegram_id: String,
-    ) -> Result<String, RabbitMqError> {
-        let mut consumer = {
-            let channel = self.channel.lock().await;
-
-            let consumer_res = channel
-                .basic_consume(
-                    queue_name,
-                    "consumer",
-                    lapin::options::BasicConsumeOptions::default(),
-                    FieldTable::default(),
-                )
-                .await;
-
-            match consumer_res {
-                Ok(consumer) => consumer,
-                Err(err) => panic!("{}", err),
-            }
-        };
-
-        println!("Starting to consume from {}", queue_name);
-
-        // Create a future for the next message
-        let receive_future = async {
-            while let Some(delivery_result) = consumer.next().await {
-                let delivery = match delivery_result {
-                    Ok(del) => del,
-                    Err(_) => return Err(RabbitMqError::DeserializationError),
-                };
-                let data = &delivery.data;
-                let message_str = match std::str::from_utf8(&data) {
-                    Ok(str) => str,
-                    Err(_) => {
-                        return Err(RabbitMqError::DeserializationError);
-                    }
-                };
-                println!("Received message: {}", message_str);
-
-                // Parse the message
-                let message = match serde_json::from_str::<Message>(message_str) {
-                    Ok(m) => m,
-                    Err(e) => {
-                        println!("Failed to parse message: {}", e);
-                        return Err(RabbitMqError::DeserializationError);
-                    }
-                };
-
-                if message.telegram_id == telegram_id {
-                    let response = format!(
-                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{}",
-                        message.body
-                    );
-
-                    delivery
-                        .ack(lapin::options::BasicAckOptions::default())
-                        .await
-                        .expect("Failed to acknowledge message");
-
-                    return Ok(response);
-                }
-            }
-            Err(RabbitMqError::DeserializationError)
-        };
-
-        // Set a timeout of 10 seconds
-        match tokio::time::timeout(std::time::Duration::from_secs(10), receive_future).await {
-            Ok(result) => result,
-            Err(_) => {
-                println!("Timeout waiting for message after 10 seconds");
-                Err(RabbitMqError::TimeoutError)
-            }
-        }
-    }
 }
 
 async fn handle_connection(
@@ -316,7 +112,7 @@ async fn handle_connection(
                 protocol: "rest".to_string(),
                 version: "1.0".to_string(),
             },
-            telegram_id: "test".to_string(),
+            message_id: "test".to_string(),
             timestamp: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
@@ -337,10 +133,20 @@ async fn handle_connection(
         };
 
         match rabbitmq_client
-            .receive_messages("recieve_queue", "test".to_string())
+            .await_message(
+                "recieve_queue",
+                "test".to_string(),
+                Duration::from_secs(10),
+                true,
+            )
             .await
         {
-            Ok(response) => response,
+            Ok(response) => {
+                format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{}",
+                    response.body
+                )
+            }
             Err(_) => "HTTP/1.1 500 Internal Server Error\r\n\r\n".to_string(),
         }
     } else {
