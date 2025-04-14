@@ -8,7 +8,7 @@ draco_base = { workspace = true }
 draco_validator = { workspace = true }
 code0-flow = { workspace = true }
 tokio = { version = "1.44.1", features = ["rt-multi-thread"] }
-redis = { version = "0.28.0", features = [
+redis = { version = "0.29.0", features = [
     "aio",
     "tokio-comp",
     "async-std-comp",
@@ -16,8 +16,6 @@ redis = { version = "0.28.0", features = [
 ] }
 tucana = { workspace = true }
 serde_json = { workspace = true }
-lapin = "2.5.0"
 serde = { workspace = true }
-futures-lite = "2.6.0"
 log = { workspace = true }
 env_logger = { workspace = true }
