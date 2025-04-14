@@ -1,10 +1,8 @@
-use serde_json::Value;
-
-use crate::RegexRule;
-
 use super::violation::{
     DataTypeRuleError, DataTypeRuleViolation, RegexRuleTypeNotAcceptedViolation, RegexRuleViolation,
 };
+use crate::RegexRule;
+use serde_json::Value;
 
 /// # Regex Pattern Validation
 ///

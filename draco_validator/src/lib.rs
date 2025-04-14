@@ -1,3 +1,4 @@
+pub mod resolver;
 pub mod rules;
 
 use rules::{
@@ -51,7 +52,10 @@ pub fn verify_body(flow: Flow, body: Value, data_type: DataType) -> Result<(), D
         let varriant = convert_to_variant(rule.variant);
 
         match varriant {
-            Variant::Unknown => panic!("not implemented"),
+            Variant::NumberRange => panic!("not implemented"),
+            Variant::ItemOfCollection => panic!("not implemented"),
+            Variant::ContainsType => panic!("not implemented"),
+            Variant::Unknown => continue,
             Variant::Regex => {
                 //This will be replaced through typed rules!
                 let rule_definition = match rule.config {
@@ -67,9 +71,6 @@ pub fn verify_body(flow: Flow, body: Value, data_type: DataType) -> Result<(), D
                     }
                 };
             }
-            Variant::NumberRange => panic!("not implemented"),
-            Variant::ItemOfCollection => panic!("not implemented"),
-            Variant::ContainsType => panic!("not implemented"),
             Variant::ContainsKey => {
                 //This will be replaced through typed rules!
                 let rule_definition = match rule.config {

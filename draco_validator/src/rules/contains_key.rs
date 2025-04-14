@@ -1,12 +1,11 @@
-use crate::{verify_body, ContainsRule};
-use serde_json::Value;
-use tucana::shared::DataType;
-use tucana::shared::Flow;
-
 use super::violation::ContainsKeyRuleViolation;
 use super::violation::DataTypeRuleError;
 use super::violation::DataTypeRuleViolation;
 use super::violation::MissingDataTypeRuleDefinition;
+use crate::{verify_body, ContainsRule};
+use serde_json::Value;
+use tucana::shared::DataType;
+use tucana::shared::Flow;
 
 /// # Data Type Validation Behavior
 ///

@@ -1,5 +1,5 @@
 [package]
-name = "draco_body"
+name = "draco_validator"
 version = "0.1.0"
 edition = "2021"
 
