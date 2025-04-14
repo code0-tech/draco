@@ -34,7 +34,7 @@ pub fn from_env_macro(input: TokenStream) -> TokenStream {
         let field_str = field_name.to_string();
 
         quote! {
-            println!("  {}: {}", #field_str, self.#field_name);
+            log::info!("  {}: {}", #field_str, self.#field_name);
         }
     });
 
@@ -58,7 +58,7 @@ pub fn from_env_macro(input: TokenStream) -> TokenStream {
                 let config = Self {
                     #(#field_parsing),*
                 };
-                println!("Configuration loaded from environment:");
+                log::info!("Configuration loaded from environment:");
                 config.print();
                 config
             }
@@ -86,7 +86,7 @@ pub fn from_env_macro(input: TokenStream) -> TokenStream {
                 let config = Self {
                     #(#field_parsing_file),*
                 };
-                println!("Configuration loaded from file '{}':", path);
+                log::info!("Configuration loaded from file '{}':", path);
                 config.print();
                 config
             }

@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 draco_base = { workspace = true }
-draco_body = { workspace = true }
+draco_validator = { workspace = true }
 code0-flow = { workspace = true }
 tokio = { version = "1.44.1", features = ["rt-multi-thread"] }
 redis = { version = "0.28.0", features = [
@@ -19,3 +19,5 @@ serde_json = { workspace = true }
 lapin = "2.5.0"
 serde = { workspace = true }
 futures-lite = "2.6.0"
+log = { workspace = true }
+env_logger = { workspace = true }

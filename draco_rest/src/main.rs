@@ -2,7 +2,8 @@ pub mod http;
 
 use code0_flow::flow_store::connection::{create_flow_store_connection, FlowStore};
 use draco_base::FromEnv;
-use draco_body::verify_flow;
+use draco_validator::resolver::flow_resolver::resolve_flow;
+use draco_validator::verify_flow;
 use futures_lite::StreamExt;
 use http::http::{HttpOption, HttpRequest};
 use lapin::options::QueueDeclareOptions;
@@ -16,10 +17,9 @@ use std::net::{TcpListener, TcpStream};
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tucana::shared::value::Kind;
 use tucana::shared::{
-    DataType, DataTypeRule, Flow, Flows, NodeFunctionDefinition, NodeParameter,
-    NodeParameterDefinition, Value,
+    DataType, DataTypeRule, Flow, NodeFunctionDefinition, NodeParameter, NodeParameterDefinition,
+    Struct, Value,
 };
 use tucana::shared::{FlowSetting, FlowSettingDefinition};
 
@@ -283,7 +283,7 @@ async fn handle_connection(
         };
 
         //TODO: Body verification of the incomming request (only json for now)
-        match verify_flow(flow.clone(), http_request.body.unwrap()) {
+        match verify_flow(flow.clone(), http_request.body.clone().unwrap()) {
             Ok(_) => {
                 print!("Body is correct")
             }
@@ -299,6 +299,16 @@ async fn handle_connection(
             }
         };
 
+        // Resolve the flow by replacing parameters with actual values
+        let mut flow_to_execute = flow.clone();
+        // Convert http_request.body from Option<Value> to Struct
+        let resolved_flow = match resolve_flow(&mut flow_to_execute, http_request.body.unwrap()) {
+            Ok(flow) => flow,
+            Err(_) => {
+                panic!("Failed to resolve flow")
+            }
+        };
+
         let message = Message {
             message_type: MessageType::ExecuteFlow,
             sender: Sender {
@@ -311,7 +321,7 @@ async fn handle_connection(
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_secs() as i64,
-            body: format!("{:?}", flow),
+            body: format!("{:?}", resolved_flow),
         };
 
         let message_json = serde_json::to_string(&message).unwrap();
@@ -319,10 +329,10 @@ async fn handle_connection(
         // Send the message to RabbitMQ queue using thread-safe client
 
         match rabbitmq_client
-            .send_message(message_json, "send_queue")
+            .send_message(message_json.clone(), "send_queue")
             .await
         {
-            Ok(_) => println!("Message sent to RabbitMQ queue"),
+            Ok(_) => println!("Message sent to RabbitMQ queue {}", message_json),
             Err(e) => println!("Failed to send message to RabbitMQ: {:?}", e),
         };
 
@@ -490,6 +500,12 @@ fn parse_request(raw_http_request: Vec<String>) -> HttpRequest {
 
 #[tokio::main]
 async fn main() {
+    env_logger::Builder::from_default_env()
+        .filter_level(log::LevelFilter::Debug)
+        .init();
+
+    log::info!("Starting Draco REST server");
+
     let config = Config::from_file("./.env");
     let url = format!("127.0.0.1:{}", config.port);
     let listener = TcpListener::bind(url).unwrap();
