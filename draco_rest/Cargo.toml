@@ -19,3 +19,4 @@ serde_json = { workspace = true }
 serde = { workspace = true }
 log = { workspace = true }
 env_logger = { workspace = true }
+uuid = { version = "1.16.0", features = ["v4"] }
