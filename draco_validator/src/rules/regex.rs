@@ -1,8 +1,9 @@
+use tucana::shared::{value::Kind, Value};
+
 use super::violation::{
     DataTypeRuleError, DataTypeRuleViolation, RegexRuleTypeNotAcceptedViolation, RegexRuleViolation,
 };
 use crate::RegexRule;
-use serde_json::Value;
 
 /// # Regex Pattern Validation
 ///
@@ -19,15 +20,20 @@ use serde_json::Value;
 /// - Returns a `RegexRuleViolation` if the string representation does not match the specified pattern
 ///
 pub fn apply_regex(rule: RegexRule, body: Value) -> Result<(), DataTypeRuleError> {
-    let result = match body {
-        Value::Bool(b) => b.to_string(),
-        Value::Number(n) => n.to_string(),
-        Value::String(s) => s,
+    let kind = match body.kind {
+        Some(kind) => kind,
+        None => return Ok(()),
+    };
+
+    let result = match kind {
+        Kind::BoolValue(b) => b.to_string(),
+        Kind::NumberValue(n) => n.to_string(),
+        Kind::StringValue(s) => s,
         _ => {
             return Err(DataTypeRuleError {
                 violations: vec![DataTypeRuleViolation::RegexTypeNotAccepted(
                     RegexRuleTypeNotAcceptedViolation {
-                        type_not_accepted: format!("{:?}", body),
+                        type_not_accepted: format!("{:?}", kind),
                     },
                 )],
             })

@@ -7,9 +7,8 @@ use rules::{
     violation::{DataTypeRuleError, DataTypeRuleViolation},
 };
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::i32;
-use tucana::shared::{data_type_rule::Variant, DataType, Flow, Struct};
+use tucana::shared::{data_type_rule::Variant, DataType, Flow, Struct, Value};
 
 pub struct VerificationResult;
 
@@ -25,6 +24,8 @@ pub struct ContainsRule {
 }
 
 pub fn verify_flow(flow: Flow, body: Value) -> Result<(), DataTypeRuleError> {
+    println!("Root body: {:?}", body);
+
     let input_type = match &flow.input_type {
         Some(r) => r.clone(),
         None => return Ok(()), //Returns directly because no rule is given. The body is ok and will not be concidered

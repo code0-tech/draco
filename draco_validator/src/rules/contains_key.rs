@@ -3,9 +3,10 @@ use super::violation::DataTypeRuleError;
 use super::violation::DataTypeRuleViolation;
 use super::violation::MissingDataTypeRuleDefinition;
 use crate::{verify_body, ContainsRule};
-use serde_json::Value;
+use tucana::shared::value::Kind;
 use tucana::shared::DataType;
 use tucana::shared::Flow;
+use tucana::shared::Value;
 
 /// # Data Type Validation Behavior
 ///
@@ -26,35 +27,49 @@ pub fn apply_contains_key(
     body: Value,
     flow: Flow,
 ) -> Result<(), DataTypeRuleError> {
-    let value = match body.get(&rule.key) {
-        Some(value) => value.to_owned(),
-        None => {
-            let error = ContainsKeyRuleViolation {
-                missing_key: rule.key,
-            };
+    println!("{:?} on body {:?}", rule, body);
 
-            return Err(DataTypeRuleError {
-                violations: vec![DataTypeRuleViolation::ContainsKey(error)],
-            });
+    if let Some(Kind::StructValue(struct_value)) = &body.kind {
+        let fields = struct_value.fields.to_owned();
+
+        let value = match fields.get(&rule.key) {
+            Some(value) => value.to_owned(),
+            None => {
+                let error = ContainsKeyRuleViolation {
+                    missing_key: rule.key,
+                };
+
+                return Err(DataTypeRuleError {
+                    violations: vec![DataTypeRuleViolation::ContainsKey(error)],
+                });
+            }
+        };
+
+        let data_type = match get_data_type_by_id(&flow, rule.r#type.clone()) {
+            Some(data_type) => data_type,
+            None => {
+                let error = MissingDataTypeRuleDefinition {
+                    missing_type: rule.r#type,
+                };
+
+                return Err(DataTypeRuleError {
+                    violations: vec![DataTypeRuleViolation::MissingDataType(error)],
+                });
+            }
+        };
+
+        match verify_body(flow, value, data_type) {
+            Ok(()) => Ok(()),
+            Err(e) => Err(e),
         }
-    };
-
-    let data_type = match get_data_type_by_id(&flow, rule.r#type.clone()) {
-        Some(data_type) => data_type,
-        None => {
-            let error = MissingDataTypeRuleDefinition {
-                missing_type: rule.r#type,
-            };
-
-            return Err(DataTypeRuleError {
-                violations: vec![DataTypeRuleViolation::MissingDataType(error)],
-            });
-        }
-    };
-
-    match verify_body(flow, value, data_type) {
-        Ok(()) => Ok(()),
-        Err(e) => Err(e),
+    } else {
+        return Err(DataTypeRuleError {
+            violations: vec![DataTypeRuleViolation::ContainsKey(
+                ContainsKeyRuleViolation {
+                    missing_key: rule.key.clone(),
+                },
+            )],
+        });
     }
 }
 
