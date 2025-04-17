@@ -1,3 +1,5 @@
+use super::response::HttpResponse;
+use crate::to_tucana_value;
 use std::{
     collections::HashMap,
     io::{BufRead, BufReader, Read},
@@ -5,10 +7,6 @@ use std::{
     str::FromStr,
 };
 use tucana::shared::Value;
-
-use crate::to_tucana_value;
-
-use super::response::HttpResponse;
 
 #[derive(Debug)]
 pub enum HttpOption {
@@ -49,6 +47,25 @@ pub struct HttpRequest {
     pub path: String,
     pub version: String,
     pub headers: Vec<String>,
+    pub body: Option<Value>,
+}
+
+#[derive(Debug)]
+pub enum PrimitiveValue {
+    String(String),
+    Number(f64),
+    Boolean(bool),
+}
+
+#[derive(Debug)]
+pub struct PrimitiveStruct {
+    pub fields: HashMap<String, PrimitiveValue>,
+}
+
+#[derive(Debug)]
+pub struct HttpParameter {
+    pub url_query: Option<PrimitiveStruct>,
+    pub url_parameters: Option<PrimitiveStruct>,
     pub body: Option<Value>,
 }
 

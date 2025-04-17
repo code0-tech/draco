@@ -9,7 +9,6 @@ pub mod queue {
     };
     use draco_validator::{resolver::flow_resolver::resolve_flow, verify_flow};
     use std::{collections::HashMap, sync::Arc, time::Duration};
-    use tucana::shared::Flow;
 
     fn create_rest_message(message_content: String) -> Message {
         Message {
@@ -36,21 +35,11 @@ pub mod queue {
         // Check if a flow exists for the given settings
         let flow_exists = check_flow_exists(&flow_store, &request).await;
 
-        let flow_string = match flow_exists {
+        let flow = match flow_exists {
             Some(flow) => flow,
             None => {
                 return HttpResponse::not_found(
                     "The given route does not exist".to_string(),
-                    HashMap::new(),
-                )
-            }
-        };
-
-        let flow = match serde_json::from_str::<Vec<Flow>>(flow_string.as_str()) {
-            Ok(flow) => flow[0].clone(),
-            Err(_) => {
-                return HttpResponse::internal_server_error(
-                    "Internal Server Error".to_string(),
                     HashMap::new(),
                 )
             }
