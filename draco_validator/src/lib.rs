@@ -1,3 +1,4 @@
+pub mod path;
 pub mod resolver;
 pub mod rules;
 
@@ -24,8 +25,6 @@ pub struct ContainsRule {
 }
 
 pub fn verify_flow(flow: Flow, body: Value) -> Result<(), DataTypeRuleError> {
-    println!("Root body: {:?}", body);
-
     let input_type = match &flow.input_type {
         Some(r) => r.clone(),
         None => return Ok(()), //Returns directly because no rule is given. The body is ok and will not be concidered
@@ -115,7 +114,6 @@ fn to_regex_rule(config: Struct) -> Result<RegexRule, DataTypeRuleError> {
 
 // Will be replaced through typed rules!
 fn to_contains_value_rule(config: Struct) -> Result<ContainsRule, DataTypeRuleError> {
-    println!("incomming config: {:?}", config);
     let key = match config.fields.get("key") {
         Some(value) => {
             let kind = value.kind.clone().expect("");
