@@ -563,9 +563,9 @@ dependencies = [
 
 [[package]]
 name = "code0-flow"
-version = "0.0.4"
+version = "0.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93a3a1a2c24000348a99b422506be5df22650c46ed92b0b1b0562b90782e4f14"
+checksum = "24dbc44b78c316d08a604ba077a2bd6c7cdf3d28919247161d08709159a2225b"
 dependencies = [
  "async-trait",
  "futures-lite 2.6.0",

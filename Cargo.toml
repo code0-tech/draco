@@ -2,7 +2,7 @@
 members = ["draco_rest", "draco_base", "draco_validator"]
 
 [workspace.dependencies]
-code0-flow = { version = "0.0.4", features = ["all"] }
+code0-flow = { version = "0.0.7", features = ["all"] }
 tucana = { version = "0.0.19", features = ["all"] }
 serde_json = { version = "1.0.138" }
 serde = "1.0.219"
