@@ -20,6 +20,6 @@ jobs:
         env:
           RUST_BACKTRACE: 'full'
       - name: Run Tests
-        run: PATH=${{ runner.temp }}/proto/bin:$PATH cargo test --features all
+        run: PATH=${{ runner.temp }}/proto/bin:$PATH cargo test 
         env:
           RUST_BACKTRACE: 'full'
