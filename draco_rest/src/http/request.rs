@@ -5,8 +5,9 @@ use std::{
     io::{BufRead, BufReader, Read},
     net::TcpStream,
     str::FromStr,
+    usize,
 };
-use tucana::shared::Value;
+use tucana::shared::{value::Kind, Struct, Value};
 
 #[derive(Debug)]
 pub enum HttpOption {
@@ -42,30 +43,104 @@ impl ToString for HttpOption {
 }
 
 #[derive(Debug)]
+pub struct HeaderMap {
+    pub fields: HashMap<String, String>,
+}
+
+impl HeaderMap {
+    pub fn new() -> Self {
+        HeaderMap {
+            fields: HashMap::new(),
+        }
+    }
+
+    /// Create a new HeaderMap from a vector of strings.
+    ///
+    /// Each string should be in the format "key: value".
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let header = vec![
+    ///     "Content-Type: application/json".to_string(),
+    ///     "User-Agent: Mozilla/5.0".to_string(),
+    /// ];
+    /// let header_map = HeaderMap::from_vec(header);
+    /// assert_eq!(header_map.get("content-type"), Some(&"application/json".to_string()));
+    /// assert_eq!(header_map.get("user-agent"), Some(&"Mozilla/5.0".to_string()));
+    /// ```
+    pub fn from_vec(header: Vec<String>) -> Self {
+        let mut header_map = HeaderMap::new();
+
+        for param in header {
+            let mut parts = param.split(": ");
+            let key = match parts.next() {
+                Some(key) => key.to_lowercase(),
+                None => continue,
+            };
+            let value = match parts.next() {
+                Some(value) => value.to_lowercase(),
+                None => continue,
+            };
+
+            header_map.add(key, value);
+        }
+
+        header_map
+    }
+
+    #[inline]
+    pub fn add(&mut self, key: String, value: String) {
+        self.fields.insert(key, value);
+    }
+
+    #[inline]
+    pub fn get(&self, key: &str) -> Option<&String> {
+        self.fields.get(key)
+    }
+}
+
+#[derive(Debug)]
 pub struct HttpRequest {
     pub method: HttpOption,
     pub path: String,
     pub version: String,
-    pub headers: Vec<String>,
-    pub body: Option<Value>,
-}
+    pub headers: HeaderMap,
 
-#[derive(Debug)]
-pub enum PrimitiveValue {
-    String(String),
-    Number(f64),
-    Boolean(bool),
-}
-
-#[derive(Debug)]
-pub struct PrimitiveStruct {
-    pub fields: HashMap<String, PrimitiveValue>,
-}
-
-#[derive(Debug)]
-pub struct HttpParameter {
-    pub url_query: Option<PrimitiveStruct>,
-    pub url_parameters: Option<PrimitiveStruct>,
+    /// The body of the request.
+    ///
+    /// # Example
+    /// If the url was called:
+    ///
+    /// url: .../api/users/123/posts/456?filter=recent&sort=asc
+    ///
+    /// from the regex: "^/api/users/(?P<user_id>\d+)/posts/(?P<post_id>\d+)(\?.*)?$"
+    ///
+    /// With the request body:
+    ///
+    /// ```json
+    /// {
+    ///    "first": 2,
+    ///    "second": 300
+    /// }
+    /// ```
+    /// The equivalent HTTP request body will look like:
+    /// ```json
+    /// {
+    /// "url": {
+    ///     "user_id": "123",
+    ///     "post_id": "456",
+    /// },
+    /// "query": {
+    ///     "filter": "recent",
+    ///     "sort": "asc"
+    /// },
+    ///     "body": {
+    ///         "first": "1",
+    ///         "second": "2"
+    ///     }
+    /// }
+    /// ```
     pub body: Option<Value>,
 }
 
@@ -85,29 +160,7 @@ pub fn convert_to_http_request(stream: &TcpStream) -> Result<HttpRequest, HttpRe
     }
 
     // Parse headers
-    let mut http_request = parse_request(raw_http_request)?;
-
-    // Read body if Content-Length is specified
-    for header in &http_request.headers {
-        if header.to_lowercase().starts_with("content-length:") {
-            let content_length: usize = header
-                .split(':')
-                .nth(1)
-                .and_then(|s| s.trim().parse().ok())
-                .unwrap_or(0);
-
-            if content_length > 0 {
-                let mut body = vec![0; content_length];
-                if let Ok(_) = buf_reader.read_exact(&mut body) {
-                    // Parse JSON body
-                    if let Ok(json_value) = serde_json::from_slice::<serde_json::Value>(&body) {
-                        http_request.body = Some(to_tucana_value(json_value));
-                    }
-                }
-            }
-            break;
-        }
-    }
+    let http_request = parse_request(raw_http_request, buf_reader)?;
 
     log::debug!("Received HTTP Request: {:?}", &http_request);
 
@@ -121,8 +174,14 @@ pub fn convert_to_http_request(stream: &TcpStream) -> Result<HttpRequest, HttpRe
     Ok(http_request)
 }
 
-fn parse_request(raw_http_request: Vec<String>) -> Result<HttpRequest, HttpResponse> {
+#[inline]
+fn parse_request(
+    raw_http_request: Vec<String>,
+    mut buf_reader: BufReader<&TcpStream>,
+) -> Result<HttpRequest, HttpResponse> {
     let params = &raw_http_request[0];
+    let headers = raw_http_request[1..raw_http_request.len()].to_vec();
+    let header_map = HeaderMap::from_vec(headers);
 
     if params.is_empty() {
         return Err(HttpResponse::bad_request(
@@ -152,11 +211,77 @@ fn parse_request(raw_http_request: Vec<String>) -> Result<HttpRequest, HttpRespo
         }
     };
 
+    let mut body_values: HashMap<String, Value> = HashMap::new();
+
+    if let Some(content_length) = header_map.get("content-length") {
+        let size: usize = match content_length.parse() {
+            Ok(len) => len,
+            Err(_) => {
+                return Err(HttpResponse::bad_request(
+                    "Invalid content-length header".to_string(),
+                    HashMap::new(),
+                ))
+            }
+        };
+
+        let mut body = vec![0; size];
+        if let Ok(_) = buf_reader.read_exact(&mut body) {
+            if let Ok(json_value) = serde_json::from_slice::<serde_json::Value>(&body) {
+                body_values.insert("body".to_string(), to_tucana_value(json_value));
+            }
+        }
+    };
+
+    if path.contains("?") {
+        let mut fields: HashMap<String, Value> = HashMap::new();
+        if let Some((_, query)) = path.split_once("?") {
+            let values = query.split("&");
+
+            for value in values {
+                let mut parts = value.split("=");
+                let key = match parts.next() {
+                    Some(key) => key.to_string(),
+                    None => continue,
+                };
+
+                let value = match parts.next() {
+                    Some(value) => value.to_string(),
+                    None => continue,
+                };
+
+                fields.insert(
+                    key,
+                    Value {
+                        kind: Some(Kind::StringValue(value)),
+                    },
+                );
+            }
+        };
+
+        if !fields.is_empty() {
+            let value = Value {
+                kind: Some(Kind::StructValue(Struct { fields })),
+            };
+
+            body_values.insert("query".to_string(), value);
+        }
+    };
+
+    let body = if !body_values.is_empty() {
+        Some(Value {
+            kind: Some(Kind::StructValue(Struct {
+                fields: body_values,
+            })),
+        })
+    } else {
+        None
+    };
+
     Ok(HttpRequest {
         method,
         path: path.to_string(),
         version: version.to_string(),
-        headers: raw_http_request.clone(),
-        body: None,
+        headers: header_map,
+        body,
     })
 }
