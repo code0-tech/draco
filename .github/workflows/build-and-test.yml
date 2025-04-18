@@ -1,0 +1,25 @@
+name: Build & Test Draco 
+
+on:
+  push:
+
+jobs:
+  draco:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup rust
+        run: rustup update --no-self-update stable
+      - name: Build crate
+        run: PATH=${{ runner.temp }}/proto/bin:$PATH cargo build
+        env:
+          RUST_BACKTRACE: 'full'
+      - name: Run Tests
+        run: PATH=${{ runner.temp }}/proto/bin:$PATH cargo test --features all
+        env:
+          RUST_BACKTRACE: 'full'
