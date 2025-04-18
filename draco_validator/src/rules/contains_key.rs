@@ -2,6 +2,7 @@ use super::violation::ContainsKeyRuleViolation;
 use super::violation::DataTypeRuleError;
 use super::violation::DataTypeRuleViolation;
 use super::violation::MissingDataTypeRuleDefinition;
+use crate::path::path::expect_kind;
 use crate::{verify_body, ContainsRule};
 use tucana::shared::value::Kind;
 use tucana::shared::DataType;
@@ -29,11 +30,11 @@ pub fn apply_contains_key(
 ) -> Result<(), DataTypeRuleError> {
     println!("{:?} on body {:?}", rule, body);
 
-    if let Some(Kind::StructValue(struct_value)) = &body.kind {
-        let fields = struct_value.fields.to_owned();
-
-        let value = match fields.get(&rule.key) {
-            Some(value) => value.to_owned(),
+    if let Some(Kind::StructValue(_)) = &body.kind {
+        let value = match expect_kind(&rule.key, &body) {
+            Some(value) => Value {
+                kind: Some(value.to_owned()),
+            },
             None => {
                 let error = ContainsKeyRuleViolation {
                     missing_key: rule.key,

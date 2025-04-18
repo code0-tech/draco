@@ -9,6 +9,7 @@ pub mod queue {
     };
     use draco_validator::{resolver::flow_resolver::resolve_flow, verify_flow};
     use std::{collections::HashMap, sync::Arc, time::Duration};
+    use tucana::shared::{Struct, Value};
 
     fn create_rest_message(message_content: String) -> Message {
         Message {
@@ -28,14 +29,14 @@ pub mod queue {
     }
 
     pub async fn handle_connection(
-        request: HttpRequest,
+        mut request: HttpRequest,
         flow_store: FlowStore,
         rabbitmq_client: Arc<RabbitmqClient>,
     ) -> HttpResponse {
         // Check if a flow exists for the given settings
         let flow_exists = check_flow_exists(&flow_store, &request).await;
 
-        let flow = match flow_exists {
+        let flow_result = match flow_exists {
             Some(flow) => flow,
             None => {
                 return HttpResponse::not_found(
@@ -44,6 +45,53 @@ pub mod queue {
                 )
             }
         };
+
+        let flow = flow_result.flow;
+        let regex_pattern = flow_result.regex_pattern;
+        let mut url_params: HashMap<String, Value> = HashMap::new();
+
+        //Resolve url params
+        let capture_keys = regex_pattern.capture_names();
+        if let Some(captures) = regex_pattern.captures(&request.path) {
+            for key_option in capture_keys {
+                let key = match key_option {
+                    Some(key) => key,
+                    None => continue,
+                };
+
+                let value = match captures.name(key) {
+                    Some(value) => value.as_str().to_string(),
+                    None => continue,
+                };
+
+                let string_value = Value {
+                    kind: Some(tucana::shared::value::Kind::StringValue(value)),
+                };
+
+                url_params.insert(key.to_string(), string_value);
+            }
+        }
+
+        //Will add the url params to the request body
+        if !url_params.is_empty() {
+            if let Some(body) = &mut request.body {
+                if let Some(kind) = &mut body.kind {
+                    match kind {
+                        tucana::shared::value::Kind::StructValue(struct_value) => {
+                            struct_value.fields.insert(
+                                "url".to_string(),
+                                Value {
+                                    kind: Some(tucana::shared::value::Kind::StructValue(Struct {
+                                        fields: url_params,
+                                    })),
+                                },
+                            );
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
 
         // Determine which flow to use based on request body
         let flow_to_use = if let Some(body) = &request.body {

@@ -1,5 +1,7 @@
 use tucana::shared::{value::Kind, Flow, Value};
 
+use crate::path::path::expect_kind;
+
 pub fn resolve_flow(flow: &mut Flow, body: Value) -> Result<Flow, ()> {
     let node = match &mut flow.starting_node {
         Some(node) => node,
@@ -15,18 +17,16 @@ pub fn resolve_flow(flow: &mut Flow, body: Value) -> Result<Flow, ()> {
         match value {
             tucana::shared::node_parameter::Value::LiteralValue(param_value) => {
                 if let Some(Kind::StringValue(key)) = &mut param_value.kind {
-                    if let Some(Kind::StructValue(ref struct_value)) = body.kind {
-                        let body_value = struct_value.fields.get(key);
+                    if let Some(kind) = expect_kind(key, &body) {
+                        let body_value = Value { kind: Some(kind) };
 
                         println!(
                             "Field: {}, will be replaced from body with the value: {:?}",
                             key, body_value
                         );
 
-                        if let Some(body_val) = body_value {
-                            *param_value = body_val.clone();
-                        }
-                    }
+                        *param_value = body_value
+                    };
                 }
 
                 /*    if let Some(Kind::StructValue(struct_value)) = &mut param_value.kind {
