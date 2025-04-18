@@ -2,9 +2,19 @@ pub mod store {
     use crate::http::request::HttpRequest;
     use code0_flow::flow_store::connection::FlowStore;
     use redis::{AsyncCommands, JsonAsyncCommands};
+    use regex::Regex;
     use tucana::shared::{value::Kind, Flow, Struct};
 
-    pub async fn check_flow_exists(flow_store: &FlowStore, request: &HttpRequest) -> Option<Flow> {
+    //The regex is required for later purposes --> resolve the parameter of the url
+    pub struct FlowExistResult {
+        pub flow: Flow,
+        pub regex_pattern: Regex,
+    }
+
+    pub async fn check_flow_exists(
+        flow_store: &FlowStore,
+        request: &HttpRequest,
+    ) -> Option<FlowExistResult> {
         let mut store = flow_store.lock().await;
 
         // Get all keys from Redis
@@ -26,6 +36,7 @@ pub mod store {
         for flow in result {
             let mut correct_url = false;
             let mut correct_method = false;
+            let mut flow_regex: Option<Regex> = None;
 
             for setting in flow.settings.clone() {
                 let definition = match setting.definition {
@@ -71,6 +82,7 @@ pub mod store {
 
                                 if regex.is_match(&request.path) {
                                     correct_url = true;
+                                    flow_regex = Some(regex);
                                 }
                             }
                         }
@@ -81,7 +93,15 @@ pub mod store {
             }
 
             if correct_method && correct_url {
-                return Some(flow);
+                let regex_pattern = match flow_regex {
+                    Some(regex) => regex.clone(),
+                    None => continue,
+                };
+
+                return Some(FlowExistResult {
+                    flow,
+                    regex_pattern,
+                });
             }
         }
 
