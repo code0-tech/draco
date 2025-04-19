@@ -1,3 +1,4 @@
+pub mod path;
 pub mod resolver;
 pub mod rules;
 
@@ -7,9 +8,8 @@ use rules::{
     violation::{DataTypeRuleError, DataTypeRuleViolation},
 };
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::i32;
-use tucana::shared::{data_type_rule::Variant, DataType, Flow, Struct};
+use tucana::shared::{data_type_rule::Variant, DataType, Flow, Struct, Value};
 
 pub struct VerificationResult;
 
@@ -114,7 +114,6 @@ fn to_regex_rule(config: Struct) -> Result<RegexRule, DataTypeRuleError> {
 
 // Will be replaced through typed rules!
 fn to_contains_value_rule(config: Struct) -> Result<ContainsRule, DataTypeRuleError> {
-    println!("incomming config: {:?}", config);
     let key = match config.fields.get("key") {
         Some(value) => {
             let kind = value.kind.clone().expect("");
