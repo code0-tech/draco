@@ -575,7 +575,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
- "tucana 0.0.20",
+ "tucana",
 ]
 
 [[package]]
@@ -775,7 +775,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
- "tucana 0.0.19",
+ "tucana",
  "uuid",
 ]
 
@@ -786,7 +786,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
- "tucana 0.0.19",
+ "tucana",
 ]
 
 [[package]]
@@ -2705,20 +2705,6 @@ name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
-
-[[package]]
-name = "tucana"
-version = "0.0.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6c0791d9505b75b1405db08e0a2fd32d3dff98a4346c2d3ecf17ed55ea36de2"
-dependencies = [
- "prost",
- "prost-types",
- "serde",
- "serde_json",
- "tonic",
- "tonic-build",
-]
 
 [[package]]
 name = "tucana"
