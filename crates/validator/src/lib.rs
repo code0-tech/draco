@@ -6,21 +6,9 @@ use rules::{
     regex::apply_regex,
     violation::{DataTypeNotFoundRuleViolation, DataTypeRuleError, DataTypeRuleViolation},
 };
-use serde::{Deserialize, Serialize};
 use tucana::shared::{data_type_rule::Config, DataType, Flow, Value};
 
 pub struct VerificationResult;
-
-#[derive(Serialize, Deserialize)]
-pub struct RegexRule {
-    pub pattern: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ContainsRule {
-    pub key: String,
-    pub r#type: String,
-}
 
 pub fn verify_flow(flow: Flow, body: Value) -> Result<(), DataTypeRuleError> {
     let input_type = match &flow.input_type_identifier {
@@ -57,9 +45,9 @@ pub fn verify_body(flow: Flow, body: Value, data_type: DataType) -> Result<(), D
         };
 
         match rule_config {
-            Config::NumberRange(config) => panic!("not implemented"),
-            Config::ItemOfCollection(config) => panic!("not implemented"),
-            Config::ContainsType(config) => panic!("not implemented"),
+            Config::NumberRange(_) => panic!("not implemented"),
+            Config::ItemOfCollection(_) => panic!("not implemented"),
+            Config::ContainsType(_) => panic!("not implemented"),
             Config::Regex(config) => {
                 match apply_regex(config, &body) {
                     Ok(_) => continue,

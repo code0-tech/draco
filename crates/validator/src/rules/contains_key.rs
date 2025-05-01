@@ -2,7 +2,7 @@ use super::violation::ContainsKeyRuleViolation;
 use super::violation::DataTypeRuleError;
 use super::violation::DataTypeRuleViolation;
 use super::violation::MissingDataTypeRuleDefinition;
-use crate::{verify_body, ContainsRule};
+use crate::verify_body;
 use tucana::shared::helper::path::expect_kind;
 use tucana::shared::value::Kind;
 use tucana::shared::DataType;
