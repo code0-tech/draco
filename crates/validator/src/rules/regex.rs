@@ -1,9 +1,8 @@
-use tucana::shared::{value::Kind, Value};
+use tucana::shared::{value::Kind, DataTypeRegexRuleConfig, Value};
 
 use super::violation::{
     DataTypeRuleError, DataTypeRuleViolation, RegexRuleTypeNotAcceptedViolation, RegexRuleViolation,
 };
-use crate::RegexRule;
 
 /// # Regex Pattern Validation
 ///
@@ -19,8 +18,8 @@ use crate::RegexRule;
 ///   (e.g., arrays, objects)
 /// - Returns a `RegexRuleViolation` if the string representation does not match the specified pattern
 ///
-pub fn apply_regex(rule: RegexRule, body: Value) -> Result<(), DataTypeRuleError> {
-    let kind = match body.kind {
+pub fn apply_regex(rule: DataTypeRegexRuleConfig, body: &Value) -> Result<(), DataTypeRuleError> {
+    let kind = match &body.kind {
         Some(kind) => kind,
         None => return Ok(()),
     };
@@ -28,7 +27,7 @@ pub fn apply_regex(rule: RegexRule, body: Value) -> Result<(), DataTypeRuleError
     let result = match kind {
         Kind::BoolValue(b) => b.to_string(),
         Kind::NumberValue(n) => n.to_string(),
-        Kind::StringValue(s) => s,
+        Kind::StringValue(s) => s.clone(),
         _ => {
             return Err(DataTypeRuleError {
                 violations: vec![DataTypeRuleViolation::RegexTypeNotAccepted(

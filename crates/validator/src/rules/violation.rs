@@ -7,6 +7,7 @@ pub enum DataTypeRuleViolation {
     ContainsKey(ContainsKeyRuleViolation),
     Regex(RegexRuleViolation),
     RegexTypeNotAccepted(RegexRuleTypeNotAcceptedViolation),
+    DataTypeNotFound(DataTypeNotFoundRuleViolation),
 }
 
 pub struct MissingDataTypeRuleDefinition {
@@ -23,6 +24,10 @@ pub struct RegexRuleViolation {
 
 pub struct RegexRuleTypeNotAcceptedViolation {
     pub type_not_accepted: String,
+}
+
+pub struct DataTypeNotFoundRuleViolation {
+    pub data_type: String,
 }
 
 impl DataTypeRuleError {
@@ -64,6 +69,15 @@ impl DataTypeRuleError {
                         "explanation": format!("Regex pattern does not match data type: '{}'", v.type_not_accepted),
                         "details": {
                             "type_not_accepted": v.type_not_accepted
+                        }
+                    }));
+                }
+                DataTypeRuleViolation::DataTypeNotFound(v) => {
+                    violations.push(serde_json::json!({
+                        "type": "DataTypeNotFound",
+                        "explanation": format!("Data type not found: '{}'", v.data_type),
+                        "details": {
+                            "data_type": v.data_type
                         }
                     }));
                 }

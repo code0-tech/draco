@@ -1,6 +1,5 @@
+use tucana::shared::helper::path::expect_kind;
 use tucana::shared::{value::Kind, Flow, Value};
-
-use crate::path::path::expect_kind;
 
 pub fn resolve_flow(flow: &mut Flow, body: Value) -> Result<Flow, ()> {
     let node = match &mut flow.starting_node {
