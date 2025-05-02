@@ -1,13 +1,15 @@
 pub mod resolver;
-pub mod rules;
+mod rules;
 
 use rules::{
     contains_key::apply_contains_key,
+    item_of_collection::apply_item_of_collection,
+    number_range::apply_number_range,
     regex::apply_regex,
     violation::{DataTypeNotFoundRuleViolation, DataTypeRuleError, DataTypeRuleViolation},
 };
-use tucana::shared::{data_type_rule::Config, DataType, Flow, Value};
 
+use tucana::shared::{data_type_rule::Config, DataType, Flow, Value};
 pub struct VerificationResult;
 
 pub fn verify_flow(flow: Flow, body: Value) -> Result<(), DataTypeRuleError> {
@@ -36,7 +38,7 @@ pub fn verify_flow(flow: Flow, body: Value) -> Result<(), DataTypeRuleError> {
     verify_body(flow, body, data_type)
 }
 
-pub fn verify_body(flow: Flow, body: Value, data_type: DataType) -> Result<(), DataTypeRuleError> {
+fn verify_body(flow: Flow, body: Value, data_type: DataType) -> Result<(), DataTypeRuleError> {
     let mut violations: Vec<DataTypeRuleViolation> = Vec::new();
     for rule in data_type.rules {
         let rule_config = match rule.config {
@@ -45,8 +47,24 @@ pub fn verify_body(flow: Flow, body: Value, data_type: DataType) -> Result<(), D
         };
 
         match rule_config {
-            Config::NumberRange(_) => panic!("not implemented"),
-            Config::ItemOfCollection(_) => panic!("not implemented"),
+            Config::NumberRange(config) => {
+                match apply_number_range(config, &body, &String::from("value")) {
+                    Ok(_) => continue,
+                    Err(violation) => {
+                        violations.extend(violation.violations);
+                        continue;
+                    }
+                }
+            }
+            Config::ItemOfCollection(config) => {
+                match apply_item_of_collection(config, &body, "key") {
+                    Ok(_) => continue,
+                    Err(violation) => {
+                        violations.extend(violation.violations);
+                        continue;
+                    }
+                }
+            }
             Config::ContainsType(_) => panic!("not implemented"),
             Config::Regex(config) => {
                 match apply_regex(config, &body) {

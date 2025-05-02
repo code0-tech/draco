@@ -8,6 +8,9 @@ pub enum DataTypeRuleViolation {
     Regex(RegexRuleViolation),
     RegexTypeNotAccepted(RegexRuleTypeNotAcceptedViolation),
     DataTypeNotFound(DataTypeNotFoundRuleViolation),
+    NumberInRange(NumberInRangeRuleViolation),
+    ItemOfCollection(ItemOfCollectionRuleViolation),
+    InvalidFormat(InvalidFormatRuleViolation),
 }
 
 pub struct MissingDataTypeRuleDefinition {
@@ -28,6 +31,19 @@ pub struct RegexRuleTypeNotAcceptedViolation {
 
 pub struct DataTypeNotFoundRuleViolation {
     pub data_type: String,
+}
+
+pub struct NumberInRangeRuleViolation {
+    pub key: String,
+}
+
+pub struct ItemOfCollectionRuleViolation {
+    pub collection_name: String,
+}
+
+pub struct InvalidFormatRuleViolation {
+    pub expected_format: String,
+    pub value: String,
 }
 
 impl DataTypeRuleError {
@@ -78,6 +94,34 @@ impl DataTypeRuleError {
                         "explanation": format!("Data type not found: '{}'", v.data_type),
                         "details": {
                             "data_type": v.data_type
+                        }
+                    }));
+                }
+                DataTypeRuleViolation::NumberInRange(v) => {
+                    violations.push(serde_json::json!({
+                        "type": "NumberInRange",
+                        "explanation": format!("Number not in valid range for key: '{}'", v.key),
+                        "details": {
+                            "key": v.key
+                        }
+                    }));
+                }
+                DataTypeRuleViolation::ItemOfCollection(v) => {
+                    violations.push(serde_json::json!({
+                        "type": "ItemOfCollection",
+                        "explanation": format!("Item is not a valid member of collection: '{}'", v.collection_name),
+                        "details": {
+                            "collection_name": v.collection_name
+                        }
+                    }));
+                }
+                DataTypeRuleViolation::InvalidFormat(v) => {
+                    violations.push(serde_json::json!({
+                        "type": "InvalidFormat",
+                        "explanation": format!("Invalid format. Expected: '{}', Got: '{}'", v.expected_format, v.value),
+                        "details": {
+                            "expected_format": v.expected_format,
+                            "value": v.value
                         }
                     }));
                 }

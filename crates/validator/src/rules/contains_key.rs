@@ -29,9 +29,6 @@ pub fn apply_contains_key(
     body: Value,
     flow: Flow,
 ) -> Result<(), DataTypeRuleError> {
-    println!("{:?} on body {:?}", rule, body);
-    panic!("TODO!");
-    /*
     if let Some(Kind::StructValue(_)) = &body.kind {
         let value = match expect_kind(&rule.key, &body) {
             Some(value) => Value {
@@ -48,11 +45,11 @@ pub fn apply_contains_key(
             }
         };
 
-        let data_type = match get_data_type_by_id(&flow, rule.r#type.clone()) {
+        let data_type = match get_data_type_by_id(&flow, &rule.data_type_identifier) {
             Some(data_type) => data_type,
             None => {
                 let error = MissingDataTypeRuleDefinition {
-                    missing_type: rule.r#type,
+                    missing_type: rule.data_type_identifier,
                 };
 
                 return Err(DataTypeRuleError {
@@ -74,10 +71,9 @@ pub fn apply_contains_key(
             )],
         });
     }
-     */
 }
 
-fn get_data_type_by_id(flow: &Flow, str_id: String) -> Option<DataType> {
+fn get_data_type_by_id(flow: &Flow, str_id: &String) -> Option<DataType> {
     let id = str_id.parse::<i32>().unwrap_or(1211);
 
     flow.data_types
