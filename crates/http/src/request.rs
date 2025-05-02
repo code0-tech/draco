@@ -60,13 +60,15 @@ impl HeaderMap {
     /// # Examples
     ///
     /// ```
+    /// use http::request::HeaderMap;
+    ///
     /// let header = vec![
     ///     "Content-Type: application/json".to_string(),
     ///     "User-Agent: Mozilla/5.0".to_string(),
     /// ];
     /// let header_map = HeaderMap::from_vec(header);
     /// assert_eq!(header_map.get("content-type"), Some(&"application/json".to_string()));
-    /// assert_eq!(header_map.get("user-agent"), Some(&"Mozilla/5.0".to_string()));
+    /// assert_eq!(header_map.get("user-agent"), Some(&"mozilla/5.0".to_string()));
     /// ```
     pub fn from_vec(header: Vec<String>) -> Self {
         let mut header_map = HeaderMap::new();
