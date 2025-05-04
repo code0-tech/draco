@@ -72,7 +72,7 @@ pub fn apply_number_range(
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use super::*;
 
     fn number_as_value(number: f64) -> Value {

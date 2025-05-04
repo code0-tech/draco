@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use tucana::shared::helper::path::expect_kind;
 use tucana::shared::{value::Kind, Flow, Value};
 
@@ -28,11 +29,14 @@ pub fn resolve_flow(flow: &mut Flow, body: Value) -> Result<Flow, ()> {
                     };
                 }
 
-                /*    if let Some(Kind::StructValue(struct_value)) = &mut param_value.kind {
+                if let Some(Kind::StructValue(struct_value)) = &mut param_value.kind {
                     let mut result = HashMap::new();
                     for (field, _) in struct_value.fields.clone() {
-                        let body_fields = match &body.kind.unwrap() {
-                            Kind::StructValue(body_struct) => body_struct,
+                        let body_fields = match &body.kind {
+                            Some(field) => match field {
+                                Kind::StructValue(body_struct) => body_struct,
+                                _ => panic!("Expected struct value for body"),
+                            },
                             _ => panic!("Expected struct value for body"),
                         };
 
@@ -51,7 +55,7 @@ pub fn resolve_flow(flow: &mut Flow, body: Value) -> Result<Flow, ()> {
                     println!("Parameter value updated {:?}", param_value);
                 } else {
                     panic!("not implemented yet")
-                }*/
+                }
             }
             _ => {
                 // Handle unsupported parameter type
