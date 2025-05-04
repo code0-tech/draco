@@ -33,7 +33,7 @@ pub mod queue {
         flow_store: FlowStore,
         rabbitmq_client: Arc<RabbitmqClient>,
     ) -> Option<HttpResponse> {
-        // Check if a flow exists for the given settings
+        // Check if a flow exists for the given settings, return none if not exsist for http handler
         let flow_exists = check_flow_exists(&flow_store, &request).await;
 
         let flow_result = match flow_exists {
@@ -66,8 +66,6 @@ pub mod queue {
                 url_params.insert(key.to_string(), string_value);
             }
         };
-        return None;
-        /*
 
         //Will add the url params to the request body
         if !url_params.is_empty() {
@@ -93,7 +91,7 @@ pub mod queue {
         let flow_to_use = if let Some(body) = &request.body {
             // Verify flow
             if let Err(err) = verify_flow(flow.clone(), body.clone()) {
-                return HttpResponse::bad_request(err.to_string(), HashMap::new());
+                return Some(HttpResponse::bad_request(err.to_string(), HashMap::new()));
             }
 
             // Resolve flow
@@ -101,10 +99,10 @@ pub mod queue {
             match resolve_flow(&mut resolvable_flow, body.clone()) {
                 Ok(resolved_flow) => resolved_flow,
                 Err(_) => {
-                    return HttpResponse::internal_server_error(
+                    return Some(HttpResponse::internal_server_error(
                         "Internal Server Error".to_string(),
                         HashMap::new(),
-                    )
+                    ))
                 }
             }
         } else {
@@ -116,7 +114,10 @@ pub mod queue {
         let json_flow = match serde_json::to_string(&flow_to_use) {
             Ok(string) => string,
             Err(err) => {
-                return HttpResponse::internal_server_error(err.to_string(), HashMap::new())
+                return Some(HttpResponse::internal_server_error(
+                    err.to_string(),
+                    HashMap::new(),
+                ))
             }
         };
 
@@ -125,7 +126,10 @@ pub mod queue {
         let message_json = match serde_json::to_string(&message) {
             Ok(string) => string,
             Err(err) => {
-                return HttpResponse::internal_server_error(err.to_string(), HashMap::new())
+                return Some(HttpResponse::internal_server_error(
+                    err.to_string(),
+                    HashMap::new(),
+                ))
             }
         };
 
@@ -148,12 +152,14 @@ pub mod queue {
             )
             .await
         {
-            Ok(response) => HttpResponse::ok(response.body.as_bytes().to_vec(), HashMap::new()),
-            Err(_) => HttpResponse::internal_server_error(
+            Ok(response) => Some(HttpResponse::ok(
+                response.body.as_bytes().to_vec(),
+                HashMap::new(),
+            )),
+            Err(_) => Some(HttpResponse::internal_server_error(
                 "Failed to receive message from RabbitMQ".to_string(),
                 HashMap::new(),
-            ),
+            )),
         }
-        */
     }
 }
