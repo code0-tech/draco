@@ -1,11 +1,7 @@
-use super::violation::{
-    DataTypeRuleError, DataTypeRuleViolation, InvalidFormatRuleViolation,
-    ItemOfCollectionRuleViolation,
-};
-use tucana::shared::{
-    value::Kind, DataType, DataTypeContainsTypeRuleConfig, DataTypeItemOfCollectionRuleConfig,
-    Value,
-};
+use crate::{get_data_type_by_id, verify_data_type_rules};
+
+use super::violation::{DataTypeRuleError, DataTypeRuleViolation, InvalidFormatRuleViolation};
+use tucana::shared::{value::Kind, DataType, DataTypeContainsTypeRuleConfig, Value};
 
 /// # Item of Collection Validation
 ///
@@ -19,7 +15,7 @@ use tucana::shared::{
 ///
 pub fn apply_contains_type(
     rule: DataTypeContainsTypeRuleConfig,
-    data_types: &Vec<DataType>,
+    available_data_types: &Vec<DataType>,
     body: &Value,
 ) -> Result<(), DataTypeRuleError> {
     let real_body = match &body.kind {
@@ -38,16 +34,25 @@ pub fn apply_contains_type(
 
     match real_body {
         Kind::ListValue(list) => {
-            let real_data_type = data_types
-                .iter()
-                .find(|data_type| data_type.identifier == rule.data_type_identifier)
-                .cloned();
+            let real_data_type =
+                get_data_type_by_id(available_data_types, &rule.data_type_identifier);
 
             if let Some(data_type) = real_data_type {
-                if list.values.contains(data_type) {
-                    return Ok(());
+                let mut rule_errors: Option<DataTypeRuleError> = None;
+
+                for value in list.values {
+                    match verify_data_type_rules(value, data_type.clone(), &available_data_types) {
+                        Ok(_) => {}
+                        Err(errors) => {
+                            rule_errors = Some(errors);
+                        }
+                    }
+                }
+
+                if let Some(errors) = rule_errors {
+                    return Err(errors);
                 } else {
-                    
+                    return Ok(());
                 }
             }
         }

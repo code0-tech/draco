@@ -3,6 +3,7 @@ mod rules;
 
 use rules::{
     contains_key::apply_contains_key,
+    contains_type::apply_contains_type,
     item_of_collection::apply_item_of_collection,
     number_range::apply_number_range,
     regex::apply_regex,
@@ -35,10 +36,15 @@ pub fn verify_flow(flow: Flow, body: Value) -> Result<(), DataTypeRuleError> {
         }
     };
 
-    verify_body(flow, body, data_type)
+    verify_data_type_rules(body, data_type, &flow.data_types)
 }
 
-fn verify_body(flow: Flow, body: Value, data_type: DataType) -> Result<(), DataTypeRuleError> {
+//Verifies the rules on the datatype of the body thats given
+pub fn verify_data_type_rules(
+    body: Value,
+    data_type: DataType,
+    availabe_data_types: &Vec<DataType>,
+) -> Result<(), DataTypeRuleError> {
     let mut violations: Vec<DataTypeRuleViolation> = Vec::new();
     for rule in data_type.rules {
         let rule_config = match rule.config {
@@ -65,7 +71,15 @@ fn verify_body(flow: Flow, body: Value, data_type: DataType) -> Result<(), DataT
                     }
                 }
             }
-            Config::ContainsType(_) => panic!("not implemented"),
+            Config::ContainsType(config) => {
+                match apply_contains_type(config, &availabe_data_types, &body) {
+                    Ok(_) => continue,
+                    Err(violation) => {
+                        violations.extend(violation.violations);
+                        continue;
+                    }
+                }
+            }
             Config::Regex(config) => {
                 match apply_regex(config, &body) {
                     Ok(_) => continue,
@@ -76,7 +90,7 @@ fn verify_body(flow: Flow, body: Value, data_type: DataType) -> Result<(), DataT
                 };
             }
             Config::ContainsKey(config) => {
-                match apply_contains_key(config, body.clone(), flow.clone()) {
+                match apply_contains_key(config, &body, &availabe_data_types) {
                     Ok(_) => continue,
                     Err(violation) => {
                         violations.extend(violation.violations);
@@ -92,4 +106,13 @@ fn verify_body(flow: Flow, body: Value, data_type: DataType) -> Result<(), DataT
     } else {
         Err(DataTypeRuleError { violations })
     }
+}
+
+pub fn get_data_type_by_id(data_types: &Vec<DataType>, str_id: &String) -> Option<DataType> {
+    let id = str_id.parse::<i32>().unwrap_or(1211);
+
+    data_types
+        .iter()
+        .find(|data_type| data_type.variant == id)
+        .cloned()
 }
