@@ -1,0 +1,20 @@
+[package]
+name = "rest"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+http = { workspace = true }
+config = { workspace = true }
+validator = { workspace = true }
+code0-flow = { workspace = true }
+tokio = { workspace = true }
+redis = { workspace = true }
+tucana = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+uuid = { workspace = true }
+regex = { workspace = true }
+tonic = { workspace = true }

@@ -1,0 +1,9 @@
+[package]
+name = "flow"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+code0-flow = { workspace = true }
+tucana = { workspace = true }
+tokio = { workspace = true }

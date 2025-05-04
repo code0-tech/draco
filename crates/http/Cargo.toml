@@ -1,0 +1,11 @@
+[package]
+name = "http"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tucana = { workspace = true }
+serde_json = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+tokio = { workspace = true }
