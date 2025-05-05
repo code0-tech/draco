@@ -37,7 +37,7 @@
     "rules": [
       {
         "item_of_collection": {
-          "items": [ "GET", "POST", "PUT", "DELETE", "PATCH"]
+          "items": [ "GET", "POST", "PUT", "DELETE", "PATCH", "CONNECT", "TRACE", "HEAD", "OPTIONS"]
         }
       }
     ],
