@@ -135,7 +135,7 @@
       {
         "contains_key": {
           "key": "headers",
-          "type": "OBJECT"
+          "type": "HTTP_HEADER_MAP"
         }
       }
     ],
