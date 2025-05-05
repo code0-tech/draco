@@ -37,7 +37,7 @@
     "rules": [
       {
         "item_of_collection": {
-          "items": [ "GET", "POST", "PUT", "DELETE", "PATCH", "CONNECT", "TRACE", "HEAD", "OPTIONS"]
+          "items": [ "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"]
         }
       }
     ],
@@ -154,7 +154,7 @@
       {
         "contains_key": {
           "key": "headers",
-          "type": "OBJECT"
+          "type": "HTTP_HEADER_MAP"
         }
       },
       {
