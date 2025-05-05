@@ -2,19 +2,22 @@
 
 ```json
 {
-  "flow_type_identifier": "REST"
+  "identifier": "REST"
   "name": [
     {
       "code": "en-US",
       "content": "Rest Endpoint"
     }
   ],
-  "definition": {
-    "editable": false,
-    "input_type_identifier": "HTTP_REQUEST_OBJECT",
-    "return_type_identifier": "HTTP_RESPONSE_OBJECT"
-    "settings": []
-  }
+  "description": [
+    {
+      "code": "en-US",
+      "content": "A REST API is a web service that lets clients interact with data on a server using standard HTTP methods like GET, POST, PUT, and DELETE, usually returning results in JSON format."
+    }
+  ],
+  "settings": [],
+  "input_type_identifier": "HTTP_REQUEST_OBJECT",
+  "return_type_identifier": "HTTP_RESPONSE_OBJECT"
 }
 ```
 
@@ -38,7 +41,7 @@
         }
       }
     ],
-    "parent_type_identifier": null
+    "parent_type_identifier": "TYPE"
   },
   {
     "variant": "TYPE",
@@ -56,7 +59,50 @@
         }
       }
     ],
-    "parent_type_identifier": null
+    "parent_type_identifier": "TYPE"
+  },
+  {
+    "variant": "ARRAY",
+    "identifier": "HTTP_HEADER_MAP",
+    "name": [
+      {
+        "code": "en-US",
+        "content": "HTTP Headers"
+      }
+    ],
+    "rules": [
+      {
+        "contains_type": {
+          "type": "HTTP_HEADER_ENTRY"
+        }
+      }
+    ],
+    "parent_type_identifier": "ARRAY"
+  },
+  {
+    "variant": "OBJECT",
+    "identifier": "HTTP_HEADER_ENTRY",
+    "name": [
+      {
+        "code": "en-US",
+        "content": "HTTP Header Entry"
+      }
+    ],
+    "rules": [
+      {
+        "contains_key": {
+          "key": "key",
+          "type": "TEXT"
+        }
+      },
+      {
+        "contains_key": {
+          "key": "value",
+          "type": "TEXT"
+        }
+      }
+    ],
+    "parent_type_identifier": "OBJECT"
   },
   {
     "variant": "OBJECT",
