@@ -41,7 +41,7 @@
         }
       }
     ],
-    "parent_type_identifier": "TYPE"
+    "parent_type_identifier": null
   },
   {
     "variant": "TYPE",
@@ -59,7 +59,7 @@
         }
       }
     ],
-    "parent_type_identifier": "TYPE"
+    "parent_type_identifier": null
   },
   {
     "variant": "ARRAY",
