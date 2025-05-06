@@ -22,7 +22,6 @@
 ```
 
 ## Defined DataTypes
-
 ```json
 [
   {
