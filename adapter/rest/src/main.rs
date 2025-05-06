@@ -1,7 +1,6 @@
 pub mod queue;
 pub mod store;
-
-use std::{future::Future, pin::Pin, sync::Arc};
+mod types;
 
 use code0_flow::{
     flow_queue::service::RabbitmqClient, flow_store::connection::create_flow_store_connection,
@@ -13,7 +12,8 @@ use http::{
     server::{self, AsyncHandler},
 };
 use queue::queue::handle_connection;
-use tucana::shared::{DataType, FlowType, Translation};
+use std::{future::Future, pin::Pin, sync::Arc};
+use types::{get_data_types, get_flow_types};
 
 pub struct FlowConnectionHandler {
     flow_store: code0_flow::flow_store::connection::FlowStore,
@@ -61,31 +61,10 @@ async fn main() {
     let config = Config::from_file("./.env");
 
     if !config.is_static {
-        let rest_flow_type = FlowType {
-            name: vec![Translation {
-                code: "en-US".to_string(),
-                content: "Rest Endpoint".to_string(),
-            }],
-            definition: None,
-        };
-
-        let data_type = DataType {
-            variant: 1,
-            identifier: "string".to_string(),
-            rules: vec![],
-            name: vec![Translation {
-                code: "en-US".to_string(),
-                content: "String".to_string(),
-            }],
-            input_types: vec![],
-            return_type: None,
-            parent_type_identifier: None,
-        };
-
         let update_client =
             code0_flow::flow_definition::FlowUpdateService::from_url(config.aquila_url.clone())
-                .with_data_types(vec![data_type])
-                .with_flow_types(vec![rest_flow_type]);
+                .with_data_types(get_data_types())
+                .with_flow_types(get_flow_types());
 
         update_client.send().await;
     }

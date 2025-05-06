@@ -22,7 +22,14 @@
 ```
 
 ## Defined DataTypes
-
+   Unknown = 0,
+        Primitive = 1,
+        Type = 2,
+        Object = 3,
+        Datatype = 4,
+        Array = 5,
+        Generic = 6,
+        Function = 7,
 ```json
 [
   {
