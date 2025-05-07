@@ -106,6 +106,7 @@ pub struct HttpRequest {
     pub method: HttpOption,
     pub path: String,
     pub version: String,
+    pub host: String,
     pub headers: HeaderMap,
 
     /// The body of the request.
@@ -278,10 +279,23 @@ fn parse_request(
         None
     };
 
+    let host = {
+        match header_map.get("host") {
+            Some(host) => host.clone(),
+            None => {
+                return Err(HttpResponse::bad_request(
+                    "Missing Host in Headers!".to_string(),
+                    HashMap::new(),
+                ));
+            }
+        }
+    };
+
     Ok(HttpRequest {
         method,
         path: path.to_string(),
         version: version.to_string(),
+        host,
         headers: header_map,
         body,
     })
