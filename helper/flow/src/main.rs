@@ -6,7 +6,7 @@ use code0_flow::flow_store::{
 };
 use tokio::sync::Mutex;
 use tucana::shared::Flows;
-use typed_flows::add_flow::get_add_rest_flow;
+use typed_flows::{add_flow::get_add_rest_flow, mutiply_flow::get_multiply_rest_flow};
 
 pub mod typed_data_types;
 pub mod typed_flows;
@@ -24,7 +24,7 @@ async fn main() {
     let mut client = flow_store_client.lock().await;
     let _ = client
         .insert_flows(Flows {
-            flows: vec![get_add_rest_flow()],
+            flows: vec![get_add_rest_flow(), get_multiply_rest_flow()],
         })
         .await;
 }

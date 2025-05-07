@@ -10,7 +10,7 @@ use crate::typed_data_types::{
     get_http_url_data_type,
 };
 
-pub fn get_add_rest_flow() -> Flow {
+pub fn get_multiply_rest_flow() -> Flow {
     fn get_string_value(value: &str) -> tucana::shared::Value {
         tucana::shared::Value {
             kind: Some(tucana::shared::value::Kind::StringValue(String::from(
@@ -20,7 +20,7 @@ pub fn get_add_rest_flow() -> Flow {
     }
 
     Flow {
-        flow_id: 1,
+        flow_id: 2,
         project_id: 1,
         r#type: "REST".to_string(),
         data_types: vec![
@@ -53,7 +53,7 @@ pub fn get_add_rest_flow() -> Flow {
                 object: Some(Struct {
                     fields: {
                         let mut map = HashMap::new();
-                        map.insert(String::from("url"), get_string_value("/add"));
+                        map.insert(String::from("url"), get_string_value("/multiply"));
                         map
                     },
                 }),
@@ -75,7 +75,7 @@ pub fn get_add_rest_flow() -> Flow {
         starting_node: Some(NodeFunction {
             definition: Some(NodeFunctionDefinition {
                 function_id: String::from("234567890"),
-                runtime_function_id: String::from("std::math::add"),
+                runtime_function_id: String::from("std::math::mutiply"),
             }),
             parameters: vec![
                 NodeParameter {
