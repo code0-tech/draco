@@ -9,7 +9,6 @@ config = { workspace = true }
 validator = { workspace = true }
 code0-flow = { workspace = true }
 tokio = { workspace = true }
-redis = { workspace = true }
 tucana = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }

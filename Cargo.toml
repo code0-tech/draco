@@ -23,12 +23,6 @@ syn = "2.0"
 quote = "1.0"
 proc-macro2 = "1.0"
 tokio = { version = "1.44.1", features = ["rt-multi-thread"] }
-redis = { version = "0.30.0", features = [
-    "aio",
-    "tokio-comp",
-    "async-std-comp",
-    "json",
-] }
 uuid = { version = "1.16.0", features = ["v4"] }
 tonic = "0.13.0"
 
