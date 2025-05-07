@@ -2085,7 +2085,6 @@ dependencies = [
  "env_logger",
  "http 0.0.0",
  "log",
- "redis",
  "regex",
  "serde",
  "serde_json",
