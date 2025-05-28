@@ -1,18 +1,12 @@
 [workspace]
-members = [
-    "crates/config",
-    "crates/http",
-    "crates/validator",
-    "adapter/rest",
-    "helper/flow",
-]
+members = ["crates/config", "crates/http", "crates/validator", "adapter/rest"]
 
 [workspace.package]
 version = "0.0.0"
 edition = "2021"
 
 [workspace.dependencies]
-code0-flow = { path = "../code0-flow" }
+code0-flow = { version = "0.0.12" }
 tucana = { version = "0.0.28", features = ["aquila"] }
 serde_json = { version = "1.0.138" }
 serde = "1.0.219"

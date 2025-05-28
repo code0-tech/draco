@@ -142,12 +142,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dcfed56ad506cb2c684a14971b8861fdc3baaaae314b9e5f9bb532cbe3ba7a4f"
 
 [[package]]
-name = "arc-swap"
-version = "1.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69f7f8c3906b62b754cd5326047894316021dcfe5a194c8ea52bdd94934a3457"
-
-[[package]]
 name = "asn1-rs"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -563,13 +557,15 @@ dependencies = [
 
 [[package]]
 name = "code0-flow"
-version = "0.0.0"
+version = "0.0.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7cf7a86a2ba2b0428289b0dc14b6a78d60ff94f84b80eb970e64382acac70319"
 dependencies = [
  "async-trait",
  "futures-lite 2.6.0",
  "lapin",
  "log",
- "redis 0.31.0",
+ "redis",
  "serde",
  "serde_json",
  "tokio",
@@ -867,15 +863,6 @@ name = "flagset"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3ea1ec5f8307826a5b71094dd91fc04d4ae75d5709b20ad351c7fb4815c86ec"
-
-[[package]]
-name = "flow"
-version = "0.0.0"
-dependencies = [
- "code0-flow",
- "tokio",
- "tucana",
-]
 
 [[package]]
 name = "flume"
@@ -2012,32 +1999,6 @@ dependencies = [
 
 [[package]]
 name = "redis"
-version = "0.30.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "438a4e5f8e9aa246d6f3666d6978441bf1b37d5f417b50c4dd220be09f5fcc17"
-dependencies = [
- "arc-swap",
- "async-std",
- "bytes",
- "cfg-if",
- "combine",
- "futures-util",
- "itoa",
- "num-bigint",
- "percent-encoding",
- "pin-project-lite",
- "ryu",
- "serde",
- "serde_json",
- "sha1_smol",
- "socket2 0.5.9",
- "tokio",
- "tokio-util",
- "url",
-]
-
-[[package]]
-name = "redis"
 version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0bc1ea653e0b2e097db3ebb5b7f678be339620b8041f66b30a308c1d45d36a7f"
@@ -2108,7 +2069,6 @@ dependencies = [
  "env_logger",
  "http 0.0.0",
  "log",
- "redis 0.30.0",
  "regex",
  "serde",
  "serde_json",
