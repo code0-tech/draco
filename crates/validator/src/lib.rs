@@ -98,6 +98,9 @@ pub fn verify_data_type_rules(
                     }
                 };
             }
+            _ => {
+                todo!("Implement missing configs. (Question: should I skip input and return rule?)")
+            }
         }
     }
 

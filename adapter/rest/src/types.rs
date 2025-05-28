@@ -1,7 +1,7 @@
 use tucana::shared::{
-    data_type_rule::Config, value::Kind, DataType, DataTypeContainsKeyRuleConfig,
-    DataTypeContainsTypeRuleConfig, DataTypeRegexRuleConfig, DataTypeRule, FlowType, Translation,
-    Value,
+    data_type_identifier::Type, data_type_rule::Config, value::Kind, DataType,
+    DataTypeContainsKeyRuleConfig, DataTypeContainsTypeRuleConfig, DataTypeIdentifier,
+    DataTypeRegexRuleConfig, DataTypeRule, FlowType, Translation, Value,
 };
 
 pub fn get_flow_types() -> Vec<FlowType> {
@@ -19,6 +19,10 @@ pub fn get_flow_types() -> Vec<FlowType> {
             code: String::from("en-US"),
             content: String::from("A REST API is a web service that lets clients interact with data on a server using standard HTTP methods like GET, POST, PUT, and DELETE, usually returning results in JSON format."),
         }],
+        documentation: vec![Translation {
+            code: String::from("en-US"),
+            content: String::from("A REST API is a web service that lets clients interact with data on a server using standard HTTP methods like GET, POST, PUT, and DELETE, usually returning results in JSON format."),
+        }],
     }]
 }
 
@@ -31,8 +35,6 @@ pub fn get_data_types() -> Vec<DataType> {
                 content: String::from("HTTP Method"),
             }],
             identifier: String::from("HTTP_METHOD"),
-            input_types: vec![],
-            return_type: None,
             parent_type_identifier: None,
             rules: vec![DataTypeRule {
                 config: Some(Config::ItemOfCollection(
@@ -60,6 +62,7 @@ pub fn get_data_types() -> Vec<DataType> {
                     },
                 )),
             }],
+            generic_keys: vec![],
         },
         DataType {
             variant: 2,
@@ -68,14 +71,13 @@ pub fn get_data_types() -> Vec<DataType> {
                 content: String::from("HTTP Route"),
             }],
             identifier: String::from("HTTP_URL"),
-            input_types: vec![],
-            return_type: None,
             parent_type_identifier: None,
             rules: vec![DataTypeRule {
                 config: Some(Config::Regex(DataTypeRegexRuleConfig {
                     pattern: String::from(r"/^\/\w+(?:[.:~-]\w+)*(?:\/\w+(?:[.:~-]\w+)*)*$/"),
                 })),
             }],
+            generic_keys: vec![],
         },
         DataType {
             variant: 5,
@@ -84,14 +86,15 @@ pub fn get_data_types() -> Vec<DataType> {
                 content: String::from("HTTP Headers"),
             }],
             identifier: String::from("HTTP_HEADER_MAP"),
-            input_types: vec![],
-            return_type: None,
             parent_type_identifier: Some(String::from("ARRAY")),
             rules: vec![DataTypeRule {
                 config: Some(Config::ContainsType(DataTypeContainsTypeRuleConfig {
-                    data_type_identifier: String::from("HTTP_HEADER_ENTRY"),
+                    data_type_identifier: Some(DataTypeIdentifier {
+                        r#type: Some(Type::DataTypeIdentifier(String::from("HTTP_HEADER_ENTRY"))),
+                    }),
                 })),
             }],
+            generic_keys: vec![],
         },
         DataType {
             variant: 3,
@@ -100,23 +103,26 @@ pub fn get_data_types() -> Vec<DataType> {
                 content: String::from("HTTP Header Entry"),
             }],
             identifier: String::from("HTTP_HEADER_ENTRY"),
-            input_types: vec![],
-            return_type: None,
             parent_type_identifier: Some(String::from("OBJECT")),
             rules: vec![
                 DataTypeRule {
                     config: Some(Config::ContainsKey(DataTypeContainsKeyRuleConfig {
                         key: String::from("key"),
-                        data_type_identifier: String::from("TEXT"),
+                        data_type_identifier: Some(DataTypeIdentifier {
+                            r#type: Some(Type::DataTypeIdentifier(String::from("TEXT"))),
+                        }),
                     })),
                 },
                 DataTypeRule {
                     config: Some(Config::ContainsKey(DataTypeContainsKeyRuleConfig {
                         key: String::from("value"),
-                        data_type_identifier: String::from("TEXT"),
+                        data_type_identifier: Some(DataTypeIdentifier {
+                            r#type: Some(Type::DataTypeIdentifier(String::from("TEXT"))),
+                        }),
                     })),
                 },
             ],
+            generic_keys: vec![],
         },
         DataType {
             variant: 3,
@@ -125,35 +131,42 @@ pub fn get_data_types() -> Vec<DataType> {
                 content: String::from("HTTP Request"),
             }],
             identifier: String::from("HTTP_REQUEST_OBJECT"),
-            input_types: vec![],
-            return_type: None,
             parent_type_identifier: Some(String::from("OBJECT")),
             rules: vec![
                 DataTypeRule {
                     config: Some(Config::ContainsKey(DataTypeContainsKeyRuleConfig {
                         key: String::from("method"),
-                        data_type_identifier: String::from("HTTP_METHOD"),
+                        data_type_identifier: Some(DataTypeIdentifier {
+                            r#type: Some(Type::DataTypeIdentifier(String::from("HTTP_METHOD"))),
+                        }),
                     })),
                 },
                 DataTypeRule {
                     config: Some(Config::ContainsKey(DataTypeContainsKeyRuleConfig {
                         key: String::from("url"),
-                        data_type_identifier: String::from("HTTP_URL"),
+                        data_type_identifier: Some(DataTypeIdentifier {
+                            r#type: Some(Type::DataTypeIdentifier(String::from("HTTP_URL"))),
+                        }),
                     })),
                 },
                 DataTypeRule {
                     config: Some(Config::ContainsKey(DataTypeContainsKeyRuleConfig {
                         key: String::from("body"),
-                        data_type_identifier: String::from("OBJECT"),
+                        data_type_identifier: Some(DataTypeIdentifier {
+                            r#type: Some(Type::DataTypeIdentifier(String::from("OBJECT"))),
+                        }),
                     })),
                 },
                 DataTypeRule {
                     config: Some(Config::ContainsKey(DataTypeContainsKeyRuleConfig {
                         key: String::from("headers"),
-                        data_type_identifier: String::from("HTTP_HEADER_MAP"),
+                        data_type_identifier: Some(DataTypeIdentifier {
+                            r#type: Some(Type::DataTypeIdentifier(String::from("HTTP_HEADER_MAP"))),
+                        }),
                     })),
                 },
             ],
+            generic_keys: vec![],
         },
         DataType {
             variant: 3,
@@ -162,23 +175,26 @@ pub fn get_data_types() -> Vec<DataType> {
                 content: String::from("HTTP Response"),
             }],
             identifier: String::from("HTTP_RESPONSE_OBJECT"),
-            input_types: vec![],
-            return_type: None,
             parent_type_identifier: Some(String::from("OBJECT")),
             rules: vec![
                 DataTypeRule {
                     config: Some(Config::ContainsKey(DataTypeContainsKeyRuleConfig {
                         key: String::from("body"),
-                        data_type_identifier: String::from("OBJECT"),
+                        data_type_identifier: Some(DataTypeIdentifier {
+                            r#type: Some(Type::DataTypeIdentifier(String::from("OBJECT"))),
+                        }),
                     })),
                 },
                 DataTypeRule {
                     config: Some(Config::ContainsKey(DataTypeContainsKeyRuleConfig {
                         key: String::from("headers"),
-                        data_type_identifier: String::from("HTTP_HEADER_MAP"),
+                        data_type_identifier: Some(DataTypeIdentifier {
+                            r#type: Some(Type::DataTypeIdentifier(String::from("HTTP_HEADER_MAP"))),
+                        }),
                     })),
                 },
             ],
+            generic_keys: vec![],
         },
     ]
 }

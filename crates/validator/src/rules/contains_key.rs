@@ -29,6 +29,8 @@ pub fn apply_contains_key(
     body: &Value,
     available_data_types: &Vec<DataType>,
 ) -> Result<(), DataTypeRuleError> {
+    todo!("Adjsut to Generic Keys");
+    /*
     if let Some(Kind::StructValue(_)) = &body.kind {
         let value = match expect_kind(&rule.data_type_identifier, &body) {
             Some(value) => Value {
@@ -69,4 +71,5 @@ pub fn apply_contains_key(
             )],
         });
     }
+     */
 }

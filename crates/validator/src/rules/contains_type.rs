@@ -18,6 +18,8 @@ pub fn apply_contains_type(
     available_data_types: &Vec<DataType>,
     body: &Value,
 ) -> Result<(), DataTypeRuleError> {
+    todo!("Adjust to generic keys");
+    /*
     let real_body = match &body.kind {
         Some(body) => body.clone(),
         None => {
@@ -69,4 +71,5 @@ pub fn apply_contains_type(
     }
 
     Ok(())
+     */
 }

@@ -3,7 +3,11 @@ pub mod store;
 mod types;
 
 use code0_flow::{
-    flow_queue::service::RabbitmqClient, flow_store::connection::create_flow_store_connection,
+    flow_queue::service::RabbitmqClient,
+    flow_store::{
+        connection::create_flow_store_connection,
+        service::{FlowStoreService, FlowStoreServiceBase},
+    },
 };
 use config::FromEnv;
 use http::{
@@ -13,19 +17,22 @@ use http::{
 };
 use queue::queue::handle_connection;
 use std::{future::Future, pin::Pin, sync::Arc};
+use tokio::sync::Mutex;
 use types::{get_data_types, get_flow_types};
 
 pub struct FlowConnectionHandler {
-    flow_store: code0_flow::flow_store::connection::FlowStore,
+    flow_store: Arc<Mutex<FlowStoreService>>,
     rabbitmq_client: Arc<RabbitmqClient>,
 }
 
 impl FlowConnectionHandler {
     pub async fn new(config: &Config) -> Self {
         let flow_store = create_flow_store_connection(config.redis_url.clone()).await;
+        let flow_store_service = Arc::new(Mutex::new(FlowStoreServiceBase::new(flow_store).await));
+
         let rabbitmq_client = Arc::new(RabbitmqClient::new(config.rabbitmq_url.as_str()).await);
         FlowConnectionHandler {
-            flow_store,
+            flow_store: flow_store_service,
             rabbitmq_client,
         }
     }

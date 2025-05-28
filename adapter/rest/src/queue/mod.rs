@@ -2,10 +2,11 @@ pub mod queue {
 
     use code0_flow::{
         flow_queue::service::{Message, RabbitmqClient},
-        flow_store::connection::FlowStore,
+        flow_store::service::FlowStoreService,
     };
     use http::{request::HttpRequest, response::HttpResponse};
     use std::{collections::HashMap, sync::Arc, time::Duration};
+    use tokio::sync::Mutex;
     use tucana::shared::{Struct, Value};
     use validator::{resolver::flow_resolver::resolve_flow, verify_flow};
 
@@ -30,11 +31,11 @@ pub mod queue {
 
     pub async fn handle_connection(
         mut request: HttpRequest,
-        flow_store: FlowStore,
+        flow_store: Arc<Mutex<FlowStoreService>>,
         rabbitmq_client: Arc<RabbitmqClient>,
     ) -> Option<HttpResponse> {
         // Check if a flow exists for the given settings, return none if not exsist for http handler
-        let flow_exists = check_flow_exists(&flow_store, &request).await;
+        let flow_exists = check_flow_exists(flow_store, &request).await;
 
         let flow_result = match flow_exists {
             Some(flow) => flow,
