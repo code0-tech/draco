@@ -1,4 +1,3 @@
-pub mod resolver;
 mod rules;
 
 use rules::{
@@ -40,7 +39,7 @@ pub fn verify_flow(flow: Flow, body: Value) -> Result<(), DataTypeRuleError> {
 }
 
 //Verifies the rules on the datatype of the body thats given
-pub fn verify_data_type_rules(
+fn verify_data_type_rules(
     body: Value,
     data_type: DataType,
     availabe_data_types: &Vec<DataType>,
@@ -98,9 +97,8 @@ pub fn verify_data_type_rules(
                     }
                 };
             }
-            _ => {
-                todo!("Implement missing configs. (Question: should I skip input and return rule?)")
-            }
+            // Draco dont checks Node Rules (Input/Return Type Rules!)
+            _ => continue,
         }
     }
 
@@ -111,7 +109,7 @@ pub fn verify_data_type_rules(
     }
 }
 
-pub fn get_data_type_by_id(data_types: &Vec<DataType>, str_id: &String) -> Option<DataType> {
+fn get_data_type_by_id(data_types: &Vec<DataType>, str_id: &String) -> Option<DataType> {
     let id = str_id.parse::<i32>().unwrap_or(1211);
 
     data_types
