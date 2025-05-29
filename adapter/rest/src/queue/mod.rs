@@ -8,7 +8,7 @@ pub mod queue {
     use std::{collections::HashMap, sync::Arc, time::Duration};
     use tokio::sync::Mutex;
     use tucana::shared::{Struct, Value};
-    use validator::{resolver::flow_resolver::resolve_flow, verify_flow};
+    use validator::verify_flow;
 
     use crate::store::store::check_flow_exists;
 
@@ -88,31 +88,16 @@ pub mod queue {
                 }
             }
         }
-        // Determine which flow to use based on request body
-        let flow_to_use = if let Some(body) = &request.body {
-            // Verify flow
+
+        if let Some(body) = &request.body {
+            // Verify the rules of a Flow - this is only possible if a body exists
             if let Err(err) = verify_flow(flow.clone(), body.clone()) {
                 return Some(HttpResponse::bad_request(err.to_string(), HashMap::new()));
             }
-
-            // Resolve flow
-            let mut resolvable_flow = flow.clone();
-            match resolve_flow(&mut resolvable_flow, body.clone()) {
-                Ok(resolved_flow) => resolved_flow,
-                Err(_) => {
-                    return Some(HttpResponse::internal_server_error(
-                        "Internal Server Error".to_string(),
-                        HashMap::new(),
-                    ))
-                }
-            }
-        } else {
-            // Use original flow if no body
-            flow
-        };
+        }
 
         // Serialize flow
-        let json_flow = match serde_json::to_string(&flow_to_use) {
+        let json_flow = match serde_json::to_string(&flow) {
             Ok(string) => string,
             Err(err) => {
                 return Some(HttpResponse::internal_server_error(

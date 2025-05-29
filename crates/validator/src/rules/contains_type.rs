@@ -1,7 +1,12 @@
 use crate::{get_data_type_by_id, verify_data_type_rules};
 
-use super::violation::{DataTypeRuleError, DataTypeRuleViolation, InvalidFormatRuleViolation};
-use tucana::shared::{value::Kind, DataType, DataTypeContainsTypeRuleConfig, Value};
+use super::violation::{
+    DataTypeIdentifierNotPresentRuleViolation, DataTypeRuleError, DataTypeRuleViolation,
+    GenericKeyNotAllowedRuleViolation, InvalidFormatRuleViolation,
+};
+use tucana::shared::{
+    data_type_identifier::Type, value::Kind, DataType, DataTypeContainsTypeRuleConfig, Value,
+};
 
 /// # Item of Collection Validation
 ///
@@ -18,15 +23,49 @@ pub fn apply_contains_type(
     available_data_types: &Vec<DataType>,
     body: &Value,
 ) -> Result<(), DataTypeRuleError> {
-    todo!("Adjust to generic keys");
-    /*
+    let identifier = match rule.data_type_identifier {
+        Some(optional_data_type) => {
+            if let Some(data_type) = optional_data_type.r#type {
+                match data_type {
+                    Type::DataTypeIdentifier(id) => id,
+                    _ => {
+                        return Err(DataTypeRuleError {
+                            violations: vec![DataTypeRuleViolation::GenericKeyNotAllowed(
+                                GenericKeyNotAllowedRuleViolation {
+                                    key: "identifier".to_string(),
+                                },
+                            )],
+                        })
+                    }
+                }
+            } else {
+                return Err(DataTypeRuleError {
+                    violations: vec![DataTypeRuleViolation::DataTypeIdentifierNotPresent(
+                        DataTypeIdentifierNotPresentRuleViolation {
+                            identifier: "identifier".to_string(),
+                        },
+                    )],
+                });
+            }
+        }
+        None => {
+            return Err(DataTypeRuleError {
+                violations: vec![DataTypeRuleViolation::DataTypeIdentifierNotPresent(
+                    DataTypeIdentifierNotPresentRuleViolation {
+                        identifier: "identifier".to_string(),
+                    },
+                )],
+            });
+        }
+    };
+
     let real_body = match &body.kind {
         Some(body) => body.clone(),
         None => {
             return Err(DataTypeRuleError {
                 violations: vec![DataTypeRuleViolation::InvalidFormat(
                     InvalidFormatRuleViolation {
-                        expected_format: rule.data_type_identifier,
+                        expected_format: identifier,
                         value: String::from("other"),
                     },
                 )],
@@ -36,8 +75,7 @@ pub fn apply_contains_type(
 
     match real_body {
         Kind::ListValue(list) => {
-            let real_data_type =
-                get_data_type_by_id(available_data_types, &rule.data_type_identifier);
+            let real_data_type = get_data_type_by_id(available_data_types, &identifier);
 
             if let Some(data_type) = real_data_type {
                 let mut rule_errors: Option<DataTypeRuleError> = None;
@@ -62,7 +100,7 @@ pub fn apply_contains_type(
             return Err(DataTypeRuleError {
                 violations: vec![DataTypeRuleViolation::InvalidFormat(
                     InvalidFormatRuleViolation {
-                        expected_format: rule.data_type_identifier,
+                        expected_format: identifier,
                         value: String::from("other"),
                     },
                 )],
@@ -71,5 +109,4 @@ pub fn apply_contains_type(
     }
 
     Ok(())
-     */
 }

@@ -11,6 +11,8 @@ pub enum DataTypeRuleViolation {
     NumberInRange(NumberInRangeRuleViolation),
     ItemOfCollection(ItemOfCollectionRuleViolation),
     InvalidFormat(InvalidFormatRuleViolation),
+    GenericKeyNotAllowed(GenericKeyNotAllowedRuleViolation),
+    DataTypeIdentifierNotPresent(DataTypeIdentifierNotPresentRuleViolation),
 }
 
 pub struct MissingDataTypeRuleDefinition {
@@ -44,6 +46,14 @@ pub struct ItemOfCollectionRuleViolation {
 pub struct InvalidFormatRuleViolation {
     pub expected_format: String,
     pub value: String,
+}
+
+pub struct GenericKeyNotAllowedRuleViolation {
+    pub key: String,
+}
+
+pub struct DataTypeIdentifierNotPresentRuleViolation {
+    pub identifier: String,
 }
 
 impl DataTypeRuleError {
@@ -122,6 +132,24 @@ impl DataTypeRuleError {
                         "details": {
                             "expected_format": v.expected_format,
                             "value": v.value
+                        }
+                    }));
+                }
+                DataTypeRuleViolation::GenericKeyNotAllowed(v) => {
+                    violations.push(serde_json::json!({
+                        "type": "GenericKeyNotAllowed",
+                        "explanation": format!("Generic key not allowed: '{}'", v.key),
+                        "details": {
+                            "key": v.key
+                        }
+                    }));
+                }
+                DataTypeRuleViolation::DataTypeIdentifierNotPresent(v) => {
+                    violations.push(serde_json::json!({
+                        "type": "DataTypeIdentifierNotPresent",
+                        "explanation": format!("Data type identifier not present: '{}'", v.identifier),
+                        "details": {
+                            "identifier": v.identifier
                         }
                     }));
                 }
