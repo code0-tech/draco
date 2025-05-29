@@ -1,9 +1,12 @@
 use super::violation::ContainsKeyRuleViolation;
+use super::violation::DataTypeIdentifierNotPresentRuleViolation;
 use super::violation::DataTypeRuleError;
 use super::violation::DataTypeRuleViolation;
+use super::violation::GenericKeyNotAllowedRuleViolation;
 use super::violation::MissingDataTypeRuleDefinition;
 use crate::get_data_type_by_id;
 use crate::verify_data_type_rules;
+use tucana::shared::data_type_identifier::Type;
 use tucana::shared::helper::path::expect_kind;
 use tucana::shared::value::Kind;
 use tucana::shared::DataType;
@@ -29,16 +32,50 @@ pub fn apply_contains_key(
     body: &Value,
     available_data_types: &Vec<DataType>,
 ) -> Result<(), DataTypeRuleError> {
-    todo!("Adjsut to Generic Keys");
-    /*
+    let identifier = match rule.data_type_identifier {
+        Some(optional_data_type) => {
+            if let Some(data_type) = optional_data_type.r#type {
+                match data_type {
+                    Type::DataTypeIdentifier(id) => id,
+                    _ => {
+                        return Err(DataTypeRuleError {
+                            violations: vec![DataTypeRuleViolation::GenericKeyNotAllowed(
+                                GenericKeyNotAllowedRuleViolation {
+                                    key: "identifier".to_string(),
+                                },
+                            )],
+                        })
+                    }
+                }
+            } else {
+                return Err(DataTypeRuleError {
+                    violations: vec![DataTypeRuleViolation::DataTypeIdentifierNotPresent(
+                        DataTypeIdentifierNotPresentRuleViolation {
+                            identifier: "identifier".to_string(),
+                        },
+                    )],
+                });
+            }
+        }
+        None => {
+            return Err(DataTypeRuleError {
+                violations: vec![DataTypeRuleViolation::DataTypeIdentifierNotPresent(
+                    DataTypeIdentifierNotPresentRuleViolation {
+                        identifier: "identifier".to_string(),
+                    },
+                )],
+            });
+        }
+    };
+
     if let Some(Kind::StructValue(_)) = &body.kind {
-        let value = match expect_kind(&rule.data_type_identifier, &body) {
+        let value = match expect_kind(&identifier, &body) {
             Some(value) => Value {
                 kind: Some(value.to_owned()),
             },
             None => {
                 let error = ContainsKeyRuleViolation {
-                    missing_key: rule.data_type_identifier,
+                    missing_key: identifier,
                 };
 
                 return Err(DataTypeRuleError {
@@ -47,12 +84,11 @@ pub fn apply_contains_key(
             }
         };
 
-        let data_type = match get_data_type_by_id(&available_data_types, &rule.data_type_identifier)
-        {
+        let data_type = match get_data_type_by_id(&available_data_types, &identifier) {
             Some(data_type) => data_type,
             None => {
                 let error = MissingDataTypeRuleDefinition {
-                    missing_type: rule.data_type_identifier,
+                    missing_type: identifier,
                 };
 
                 return Err(DataTypeRuleError {
@@ -66,10 +102,9 @@ pub fn apply_contains_key(
         return Err(DataTypeRuleError {
             violations: vec![DataTypeRuleViolation::ContainsKey(
                 ContainsKeyRuleViolation {
-                    missing_key: rule.data_type_identifier.clone(),
+                    missing_key: identifier,
                 },
             )],
         });
     }
-     */
 }
