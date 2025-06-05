@@ -1,15 +1,16 @@
+mod config;
 pub mod queue;
 pub mod store;
 mod types;
 
 use code0_flow::{
+    flow_config::mode::Mode,
     flow_queue::service::RabbitmqClient,
     flow_store::{
         connection::create_flow_store_connection,
         service::{FlowStoreService, FlowStoreServiceBase},
     },
 };
-use config::FromEnv;
 use http::{
     request::HttpRequest,
     response::HttpResponse,
@@ -19,6 +20,8 @@ use queue::queue::handle_connection;
 use std::{future::Future, pin::Pin, sync::Arc};
 use tokio::sync::Mutex;
 use types::{get_data_types, get_flow_types};
+
+use crate::config::Config;
 
 pub struct FlowConnectionHandler {
     flow_store: Arc<Mutex<FlowStoreService>>,
@@ -49,25 +52,18 @@ impl AsyncHandler for FlowConnectionHandler {
     }
 }
 
-#[derive(FromEnv)]
-pub struct Config {
-    port: u16,
-    redis_url: String,
-    rabbitmq_url: String,
-    aquila_url: String,
-    is_static: bool,
-}
-
 #[tokio::main]
 async fn main() {
     env_logger::Builder::from_default_env()
         .filter_level(log::LevelFilter::Debug)
         .init();
 
-    log::info!("Starting Draco REST server");
-    let config = Config::from_file("./.env");
+    code0_flow::flow_config::load_env_file();
 
-    if !config.is_static {
+    log::info!("Starting Draco REST server");
+    let config = Config::new();
+
+    if !config.is_static() {
         let update_client =
             code0_flow::flow_definition::FlowUpdateService::from_url(config.aquila_url.clone())
                 .with_data_types(get_data_types())

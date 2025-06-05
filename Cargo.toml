@@ -1,12 +1,12 @@
 [workspace]
-members = ["crates/config", "crates/http", "crates/validator", "adapter/rest"]
+members = ["crates/http", "crates/validator", "adapter/rest"]
 
 [workspace.package]
 version = "0.0.0"
 edition = "2021"
 
 [workspace.dependencies]
-code0-flow = { version = "0.0.12" }
+code0-flow = { version = "0.0.13" }
 tucana = { version = "0.0.28", features = ["aquila"] }
 serde_json = { version = "1.0.138" }
 serde = "1.0.219"
@@ -19,9 +19,6 @@ proc-macro2 = "1.0"
 tokio = { version = "1.44.1", features = ["rt-multi-thread"] }
 uuid = { version = "1.16.0", features = ["v4"] }
 tonic = "0.13.0"
-
-[workspace.dependencies.config]
-path = "../draco/crates/config"
 
 [workspace.dependencies.http]
 path = "../draco/crates/http"
