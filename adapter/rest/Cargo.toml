@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 http = { workspace = true }
-config = { workspace = true }
 validator = { workspace = true }
 code0-flow = { workspace = true }
 tokio = { workspace = true }
