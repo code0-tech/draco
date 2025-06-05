@@ -6,7 +6,7 @@ version = "0.0.0"
 edition = "2021"
 
 [workspace.dependencies]
-code0-flow = { version = "0.0.12" }
+code0-flow = { version = "0.0.13" }
 tucana = { version = "0.0.28", features = ["aquila"] }
 serde_json = { version = "1.0.138" }
 serde = "1.0.219"

@@ -557,11 +557,12 @@ dependencies = [
 
 [[package]]
 name = "code0-flow"
-version = "0.0.12"
+version = "0.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cf7a86a2ba2b0428289b0dc14b6a78d60ff94f84b80eb970e64382acac70319"
+checksum = "ecc2b4e3ce2fb62521a5fc6825074525cc88269218e4919c1e4d3a9a83ba197b"
 dependencies = [
  "async-trait",
+ "dotenv",
  "futures-lite 2.6.0",
  "lapin",
  "log",
@@ -755,6 +756,12 @@ name = "doc-comment"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
+
+[[package]]
+name = "dotenv"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
 
 [[package]]
 name = "either"
