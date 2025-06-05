@@ -1,9 +1,7 @@
 use code0_flow::flow_config::{env_with_default, environment::Environment, mode::Mode};
 
-/// Struct for all relevant `Aquila` startup configurations
+/// Struct for all relevant `Draco` startup configurations
 pub struct Config {
-    /// Aquila environment
-    ///
     /// Options:
     /// `development` (default)
     /// `staging`

@@ -63,7 +63,7 @@ async fn main() {
     log::info!("Starting Draco REST server");
     let config = Config::new();
 
-    if config.mode != Mode::STATIC {
+    if !config.is_static() {
         let update_client =
             code0_flow::flow_definition::FlowUpdateService::from_url(config.aquila_url.clone())
                 .with_data_types(get_data_types())
