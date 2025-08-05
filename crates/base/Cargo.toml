@@ -1,0 +1,6 @@
+[package]
+name = "base"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]

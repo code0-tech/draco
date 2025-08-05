@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/http", "crates/validator", "adapter/rest"]
+members = ["crates/http", "crates/validator", "adapter/rest", "crates/base"]
 
 [workspace.package]
 version = "0.0.0"
