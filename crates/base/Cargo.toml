@@ -5,3 +5,8 @@ edition.workspace = true
 
 [dependencies]
 async-nats = { workspace = true }
+tucana = { workspace = true }
+tokio = { workspace = true, features = ["signal"] }
+async-trait = { workspace = true }
+code0-flow = { workspace = true }
+anyhow = "1.0.98"
