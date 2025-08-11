@@ -9,4 +9,10 @@ tucana = { workspace = true }
 tokio = { workspace = true, features = ["signal"] }
 async-trait = { workspace = true }
 code0-flow = { workspace = true }
-anyhow = "1.0.98"
+anyhow = { workspace = true }
+code0-definition-reader = { workspace = true }
+tonic = { workspace = true }
+tonic-health = { workspace = true }
+validator = { workspace = true }
+uuid = { workspace = true }
+prost = { workspace = true }

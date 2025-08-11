@@ -208,9 +208,15 @@ dependencies = [
  "anyhow",
  "async-nats",
  "async-trait",
+ "code0-definition-reader",
  "code0-flow",
+ "prost",
  "tokio",
+ "tonic",
+ "tonic-health",
  "tucana",
+ "uuid",
+ "validator",
 ]
 
 [[package]]

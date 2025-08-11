@@ -1,13 +1,17 @@
 use crate::Context;
 use async_trait::async_trait;
-use tucana::shared::ValidationFlow;
+use tucana::shared::{ValidationFlow, Value};
 
 /*
  * These are the traits the user must implement to build a server.
  */
 
+pub trait Request {
+    fn to_value(&self) -> Value;
+}
+
 /// A trait for loading your app’s configuration.
-pub trait LoadConfig: Sized + Send + Sync + 'static {
+pub trait LoadConfig: Sized + Clone + Send + Sync + 'static {
     /// Load your concrete config (from env, files, etc.).
     fn load() -> anyhow::Result<Self>;
 }

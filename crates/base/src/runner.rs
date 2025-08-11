@@ -1,5 +1,8 @@
-use crate::{Context, LoadConfig, traits::Server};
-use code0_flow::flow_config::{environment::Environment, mode::Mode};
+use crate::{Context, LoadConfig, traits::Server as AdapterServer};
+use code0_flow::{
+    flow_config::{environment::Environment, mode::Mode},
+    flow_definition::FlowUpdateService,
+};
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
@@ -17,6 +20,8 @@ pub struct ServerConfig {
     pub nats_url: String,
     pub grpc_port: u16,
     pub aquila_url: String,
+    pub definition_path: String,
+    pub is_monitored: bool,
 }
 
 impl ServerConfig {
@@ -34,6 +39,11 @@ impl ServerConfig {
         let environment =
             code0_flow::flow_config::env_with_default("ENVIRONMENT", Environment::Development);
         let mode = code0_flow::flow_config::env_with_default("MODE", Mode::STATIC);
+        let definition_path = code0_flow::flow_config::env_with_default(
+            "DEFINITION_PATH",
+            String::from("./definition.yaml"),
+        );
+        let is_monitored = code0_flow::flow_config::env_with_default("IS_MONITORED", false);
 
         Self {
             environment,
@@ -41,6 +51,8 @@ impl ServerConfig {
             nats_url,
             grpc_port,
             aquila_url,
+            definition_path,
+            is_monitored,
         }
     }
 }
@@ -48,12 +60,18 @@ impl ServerConfig {
 pub struct ServerRunner<C: LoadConfig> {
     config: C,
     server_config: ServerConfig,
-    server: Box<dyn Server<C>>,
+    server: Box<dyn AdapterServer<C>>,
+}
+
+impl ServerConfig {
+    pub fn is_static(&self) -> bool {
+        self.mode == Mode::STATIC
+    }
 }
 
 impl<C: LoadConfig> ServerRunner<C> {
     /// Load config via `C::load()`, box your server impl.
-    pub fn new<S: Server<C>>(server: S) -> anyhow::Result<Self> {
+    pub fn new<S: AdapterServer<C>>(server: S) -> anyhow::Result<Self> {
         code0_flow::flow_config::load_env_file();
         let server_config = ServerConfig::from_env();
         let config = C::load()?;
@@ -66,10 +84,22 @@ impl<C: LoadConfig> ServerRunner<C> {
 
     /// Run init, spawn `run` with cancel, catch Ctrl+C, then shutdown.
     pub async fn serve(mut self) -> anyhow::Result<()> {
-        todo!("Load Definitions --> Send to aquila");
-        todo!("Start HEalthServer");
+        if !self.server_config.is_static() {
+            let definition_service = FlowUpdateService::from_url(
+                self.server_config.aquila_url.clone(),
+                self.server_config.definition_path.as_str(),
+            );
+
+            definition_service.send().await;
+        }
+
+        if self.server_config.is_monitored {
+            todo!("Start the HealthServer");
+        }
+
         let (shutdown_tx, _) = broadcast::channel(1);
         let ctx = Context {
+            adapter_store: crate::IdentifiableAdapterStore::new(),
             adapter_config: Arc::new(self.config),
             shutdown_rx: shutdown_tx.subscribe(),
         };

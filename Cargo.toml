@@ -21,6 +21,10 @@ uuid = { version = "1.16.0", features = ["v4"] }
 tonic = "0.13.0"
 async-nats = "0.42.0"
 async-trait = "0.1.88"
+anyhow = "1.0.98"
+code0-definition-reader = "0.0.8"
+prost = "0.13.0"
+tonic-health = "0.13.0"
 
 [workspace.dependencies.http]
 path = "../draco/crates/http"
