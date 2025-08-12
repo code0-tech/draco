@@ -10,6 +10,20 @@ pub trait AsyncHandler: Send + Sync + 'static {
     ) -> Pin<Box<dyn Future<Output = Option<HttpResponse>> + Send + 'static>>;
 }
 
+// Implement AsyncHandler for async closures
+impl<F, Fut> AsyncHandler for F
+where
+    F: Fn(HttpRequest) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = Option<HttpResponse>> + Send + 'static,
+{
+    fn handle(
+        &self,
+        request: HttpRequest,
+    ) -> Pin<Box<dyn Future<Output = Option<HttpResponse>> + Send + 'static>> {
+        Box::pin(self(request))
+    }
+}
+
 pub struct Server {
     port: u16,
     handlers: Arc<Vec<Box<dyn AsyncHandler>>>,
@@ -31,6 +45,15 @@ impl Server {
         let handlers =
             Arc::get_mut(&mut self.handlers).expect("Cannot register handler after server start");
         handlers.push(Box::new(handler));
+    }
+
+    /// Register an async closure as a handler
+    pub fn register_async_closure<F, Fut>(&mut self, closure: F)
+    where
+        F: Fn(HttpRequest) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Option<HttpResponse>> + Send + 'static,
+    {
+        self.register_handler(closure);
     }
 
     pub async fn start(&self) {

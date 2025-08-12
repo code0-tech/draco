@@ -16,3 +16,5 @@ tonic-health = { workspace = true }
 validator = { workspace = true }
 uuid = { workspace = true }
 prost = { workspace = true }
+http = { workspace = true }
+futures-lite = { workspace = true }

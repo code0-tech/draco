@@ -1,8 +1,9 @@
-use crate::{Context, LoadConfig, traits::Server as AdapterServer};
-use code0_flow::{
-    flow_config::{environment::Environment, mode::Mode},
-    flow_definition::FlowUpdateService,
+use crate::{
+    config::AdapterConfig,
+    store::AdapterStore,
+    traits::{LoadConfig, Server as AdapterServer},
 };
+use code0_flow::flow_definition::FlowUpdateService;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
@@ -14,112 +15,77 @@ use tokio::sync::broadcast;
  *  - It will gracefully shutdown the server on Ctrl+C.
  */
 
-pub struct ServerConfig {
-    pub environment: code0_flow::flow_config::environment::Environment,
-    pub mode: code0_flow::flow_config::mode::Mode,
-    pub nats_url: String,
-    pub grpc_port: u16,
-    pub aquila_url: String,
-    pub definition_path: String,
-    pub is_monitored: bool,
-}
-
-impl ServerConfig {
-    pub fn from_env() -> Self {
-        let nats_url = code0_flow::flow_config::env_with_default(
-            "NATS_URL",
-            String::from("nats://localhost:4222"),
-        );
-        let grpc_port = code0_flow::flow_config::env_with_default("GRPC_PORT", 50051);
-        let aquila_url = code0_flow::flow_config::env_with_default(
-            "AQUILA_URL",
-            String::from("grpc://localhost:50051"),
-        );
-
-        let environment =
-            code0_flow::flow_config::env_with_default("ENVIRONMENT", Environment::Development);
-        let mode = code0_flow::flow_config::env_with_default("MODE", Mode::STATIC);
-        let definition_path = code0_flow::flow_config::env_with_default(
-            "DEFINITION_PATH",
-            String::from("./definition.yaml"),
-        );
-        let is_monitored = code0_flow::flow_config::env_with_default("IS_MONITORED", false);
-
-        Self {
-            environment,
-            mode,
-            nats_url,
-            grpc_port,
-            aquila_url,
-            definition_path,
-            is_monitored,
-        }
-    }
+pub struct ServerContext<C: LoadConfig> {
+    pub server_config: Arc<C>,
+    pub adapter_config: Arc<AdapterConfig>,
+    pub adapter_store: Arc<AdapterStore>,
 }
 
 pub struct ServerRunner<C: LoadConfig> {
-    config: C,
-    server_config: ServerConfig,
+    context: ServerContext<C>,
     server: Box<dyn AdapterServer<C>>,
-}
-
-impl ServerConfig {
-    pub fn is_static(&self) -> bool {
-        self.mode == Mode::STATIC
-    }
+    shutdown_sender: broadcast::Sender<()>,
 }
 
 impl<C: LoadConfig> ServerRunner<C> {
     /// Load config via `C::load()`, box your server impl.
-    pub fn new<S: AdapterServer<C>>(server: S) -> anyhow::Result<Self> {
+    pub async fn new<S: AdapterServer<C>>(server: S) -> anyhow::Result<Self> {
         code0_flow::flow_config::load_env_file();
-        let server_config = ServerConfig::from_env();
-        let config = C::load()?;
+
+        let adapter_config = AdapterConfig::from_env();
+        let server_config = C::load();
+        let adapter_store = AdapterStore::from_url(
+            adapter_config.nats_url.clone(),
+            adapter_config.nats_bucket.clone(),
+        )
+        .await;
+        let context = ServerContext {
+            adapter_store: Arc::new(adapter_store),
+            adapter_config: Arc::new(adapter_config),
+            server_config: Arc::new(server_config),
+        };
+
+        let (shutdown_tx, _) = broadcast::channel(1);
+
         Ok(Self {
-            config,
-            server_config,
+            context,
             server: Box::new(server),
+            shutdown_sender: shutdown_tx,
         })
     }
 
     /// Run init, spawn `run` with cancel, catch Ctrl+C, then shutdown.
     pub async fn serve(mut self) -> anyhow::Result<()> {
-        if !self.server_config.is_static() {
+        let config = self.context.adapter_config.clone();
+        if !config.is_static() {
             let definition_service = FlowUpdateService::from_url(
-                self.server_config.aquila_url.clone(),
-                self.server_config.definition_path.as_str(),
+                config.aquila_url.clone(),
+                config.definition_path.as_str(),
             );
 
             definition_service.send().await;
         }
 
-        if self.server_config.is_monitored {
+        if config.is_monitored {
             todo!("Start the HealthServer");
         }
 
-        let (shutdown_tx, _) = broadcast::channel(1);
-        let ctx = Context {
-            adapter_store: crate::IdentifiableAdapterStore::new(),
-            adapter_config: Arc::new(self.config),
-            shutdown_rx: shutdown_tx.subscribe(),
-        };
-
         // 1) init
-        self.server.init(&ctx).await?;
+        self.server.init(&self.context).await?;
 
         // 2) run + listen for shutdown
-        let mut rx = shutdown_tx.subscribe();
+        let mut rx = self.shutdown_sender.subscribe();
         let mut srv = self.server;
         let handle = tokio::spawn(async move {
             tokio::select! {
-                res = srv.run(&ctx) => res,
-                _ = rx.recv() => srv.shutdown(&ctx).await,
+                res = srv.run(&self.context) => res,
+                _ = rx.recv() => srv.shutdown(&self.context).await,
             }
         });
 
         // 3) wait Ctrl+C
         tokio::signal::ctrl_c().await?;
-        let _ = shutdown_tx.send(());
+        let _ = self.shutdown_sender.send(());
 
         // 4) wait task
         handle.await??;

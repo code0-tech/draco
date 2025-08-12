@@ -1,80 +1,81 @@
-mod config;
-pub mod queue;
-pub mod store;
-mod types;
-
-use code0_flow::{
-    flow_config::mode::Mode,
-    flow_queue::service::RabbitmqClient,
-    flow_store::{
-        connection::create_flow_store_connection,
-        service::{FlowStoreService, FlowStoreServiceBase},
-    },
-};
-use http::{
-    request::HttpRequest,
-    response::HttpResponse,
-    server::{self, AsyncHandler},
-};
-use queue::queue::handle_connection;
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 use tokio::sync::Mutex;
-use types::{get_data_types, get_flow_types};
 
-use crate::config::Config;
-
-pub struct FlowConnectionHandler {
-    flow_store: Arc<Mutex<FlowStoreService>>,
-    rabbitmq_client: Arc<RabbitmqClient>,
-}
-
-impl FlowConnectionHandler {
-    pub async fn new(config: &Config) -> Self {
-        let flow_store = create_flow_store_connection(config.redis_url.clone()).await;
-        let flow_store_service = Arc::new(Mutex::new(FlowStoreServiceBase::new(flow_store).await));
-
-        let rabbitmq_client = Arc::new(RabbitmqClient::new(config.rabbitmq_url.as_str()).await);
-        FlowConnectionHandler {
-            flow_store: flow_store_service,
-            rabbitmq_client,
-        }
-    }
-}
-
-impl AsyncHandler for FlowConnectionHandler {
-    fn handle(
-        &self,
-        request: HttpRequest,
-    ) -> Pin<Box<dyn Future<Output = Option<HttpResponse>> + Send + 'static>> {
-        let flow_store = self.flow_store.clone();
-        let rabbitmq_client = self.rabbitmq_client.clone();
-        Box::pin(async move { handle_connection(request, flow_store, rabbitmq_client).await })
-    }
-}
+use base::{
+    runner::ServerContext,
+    runner::ServerRunner,
+    traits::{LoadConfig, Server as ServerTrait},
+};
+use http::{request::HttpRequest, response::HttpResponse, server::Server};
+use tonic::async_trait;
 
 #[tokio::main]
 async fn main() {
-    env_logger::Builder::from_default_env()
-        .filter_level(log::LevelFilter::Debug)
-        .init();
+    print!("Starting server!");
 
-    code0_flow::flow_config::load_env_file();
+    let server = HttpServer { http_server: None };
+    let runner = ServerRunner::new(server).await;
 
-    log::info!("Starting Draco REST server");
-    let config = Config::new();
+    let _ = match runner {
+        Ok(s) => s.serve().await,
+        Err(e) => Err(e),
+    };
+}
 
-    if !config.is_static() {
-        let update_client =
-            code0_flow::flow_definition::FlowUpdateService::from_url(config.aquila_url.clone())
-                .with_data_types(get_data_types())
-                .with_flow_types(get_flow_types());
+struct HttpServer {
+    http_server: Option<Server>,
+}
 
-        update_client.send().await;
+#[async_trait]
+impl ServerTrait<HttpServerConfig> for HttpServer {
+    async fn init(&mut self, ctx: &ServerContext<HttpServerConfig>) -> anyhow::Result<()> {
+        self.http_server = Some(Server::new(ctx.server_config.port));
+        Ok(())
     }
 
-    let mut server = server::Server::new(config.port);
+    /// The "serve forever" loop.
+    async fn run(&mut self, _ctx: &ServerContext<HttpServerConfig>) -> anyhow::Result<()> {
+        if let Some(server) = &mut self.http_server {
+            let counter = Arc::new(Mutex::new(0));
 
-    let handler = FlowConnectionHandler::new(&config).await;
-    server.register_handler(handler);
-    server.start().await
+            server.register_async_closure({
+                let counter = Arc::clone(&counter);
+                move |request: HttpRequest| {
+                    let counter = Arc::clone(&counter);
+                    async move {
+                        let mut number = counter.lock().await;
+                        *number += 1;
+
+                        println!("Received request: {:?}", request);
+
+                        let headers = HashMap::new();
+                        Some(HttpResponse::ok(
+                            format!("Hello from REST server! {}", number).into_bytes(),
+                            headers,
+                        ))
+                    }
+                }
+            });
+            server.start().await;
+        };
+
+        Ok(())
+    }
+
+    /// Called on shutdown signal.
+    async fn shutdown(&mut self, _ctx: &ServerContext<HttpServerConfig>) -> anyhow::Result<()> {
+        todo!("shutdown http server");
+    }
+}
+
+#[derive(Clone)]
+struct HttpServerConfig {
+    port: u16,
+}
+
+impl LoadConfig for HttpServerConfig {
+    fn load() -> Self {
+        HttpServerConfig { port: 8080 }
+    }
 }
