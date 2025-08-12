@@ -161,6 +161,7 @@ pub fn convert_to_http_request(stream: &TcpStream) -> Result<HttpRequest, HttpRe
         line.clear();
     }
 
+    println!("{:?}", &raw_http_request);
     // Parse headers
     let http_request = parse_request(raw_http_request, buf_reader)?;
 

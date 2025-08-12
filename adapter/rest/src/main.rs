@@ -1,14 +1,14 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::Mutex;
-
 use base::{
-    runner::ServerContext,
-    runner::ServerRunner,
-    traits::{LoadConfig, Server as ServerTrait},
+    extract_flow_setting_field,
+    runner::{ServerContext, ServerRunner},
+    store::FlowIdenfiyResult,
+    traits::{IdentifiableFlow, LoadConfig, Server as ServerTrait},
 };
 use http::{request::HttpRequest, response::HttpResponse, server::Server};
+use std::collections::HashMap;
+use std::sync::Arc;
 use tonic::async_trait;
+use tucana::shared::ValidationFlow;
 
 #[tokio::main]
 async fn main() {
@@ -27,6 +27,31 @@ struct HttpServer {
     http_server: Option<Server>,
 }
 
+struct RequestRoute {
+    url: String,
+}
+
+impl IdentifiableFlow for RequestRoute {
+    fn identify(&self, flow: &ValidationFlow) -> bool {
+        let url = extract_flow_setting_field(&flow.settings, "HTTP_URL", "url");
+
+        let regex_str = match url.as_deref() {
+            Some(s) => s,
+            None => return false,
+        };
+
+        let regex = match regex::Regex::new(regex_str) {
+            Ok(regex) => regex,
+            Err(err) => {
+                log::error!("Failed to compile regex: {}", err);
+                return false;
+            }
+        };
+
+        regex.is_match(&self.url)
+    }
+}
+
 #[async_trait]
 impl ServerTrait<HttpServerConfig> for HttpServer {
     async fn init(&mut self, ctx: &ServerContext<HttpServerConfig>) -> anyhow::Result<()> {
@@ -35,28 +60,63 @@ impl ServerTrait<HttpServerConfig> for HttpServer {
     }
 
     /// The "serve forever" loop.
-    async fn run(&mut self, _ctx: &ServerContext<HttpServerConfig>) -> anyhow::Result<()> {
+    async fn run(&mut self, ctx: &ServerContext<HttpServerConfig>) -> anyhow::Result<()> {
         if let Some(server) = &mut self.http_server {
-            let counter = Arc::new(Mutex::new(0));
+            println!("Registering async closure handler...");
 
             server.register_async_closure({
-                let counter = Arc::clone(&counter);
+                let store = Arc::clone(&ctx.adapter_store);
                 move |request: HttpRequest| {
-                    let counter = Arc::clone(&counter);
+                    let store = Arc::clone(&store);
                     async move {
-                        let mut number = counter.lock().await;
-                        *number += 1;
+                        println!("Handler called with request: {:?}", &request);
 
-                        println!("Received request: {:?}", request);
+                        let pattern =
+                            format!("*::*::{}::{}", request.host, request.method.to_string());
+                        println!("Pattern created: {}", pattern);
 
-                        let headers = HashMap::new();
-                        Some(HttpResponse::ok(
-                            format!("Hello from REST server! {}", number).into_bytes(),
-                            headers,
-                        ))
+                        let route = RequestRoute {
+                            url: request.path.clone(),
+                        };
+
+                        println!("About to call get_possible_flow_match...");
+                        let identification_result =
+                            store.get_possible_flow_match(pattern, route).await;
+                        println!("Flow identification completed");
+
+                        match identification_result {
+                            FlowIdenfiyResult::Single(_flow) => {
+                                println!("Single flow found, returning success response");
+                                //TODO: Implement flow execution logic
+                                //let execution_result = ctx
+                                //    .adapter_store
+                                //        .validate_and_execute_flow(flow, None)
+                                //        .await;
+
+                                let headers = HashMap::new();
+                                let response = Some(HttpResponse::ok(
+                                    String::from("Flow executed successfully!").into_bytes(),
+                                    headers,
+                                ));
+                                println!("Returning response: {:?}", response.is_some());
+                                return response;
+                            }
+                            _ => {
+                                println!("No single flow found, returning default response");
+                                let headers = HashMap::new();
+                                let response = Some(HttpResponse::internal_server_error(
+                                    format!("No Flow found for path: {}", request.path),
+                                    headers,
+                                ));
+                                println!("Returning response: {:?}", response.is_some());
+                                return response;
+                            }
+                        }
                     }
                 }
             });
+
+            println!("Starting HTTP server...");
             server.start().await;
         };
 
@@ -65,7 +125,10 @@ impl ServerTrait<HttpServerConfig> for HttpServer {
 
     /// Called on shutdown signal.
     async fn shutdown(&mut self, _ctx: &ServerContext<HttpServerConfig>) -> anyhow::Result<()> {
-        todo!("shutdown http server");
+        if let Some(server) = &self.http_server {
+            server.shutdown();
+        }
+        Ok(())
     }
 }
 
@@ -76,6 +139,6 @@ struct HttpServerConfig {
 
 impl LoadConfig for HttpServerConfig {
     fn load() -> Self {
-        HttpServerConfig { port: 8080 }
+        HttpServerConfig { port: 8081 }
     }
 }

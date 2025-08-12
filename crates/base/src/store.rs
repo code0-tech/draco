@@ -68,28 +68,25 @@ impl AdapterStore {
         key: String,
         id: I,
     ) -> FlowIdenfiyResult {
-        let mut stream = match self.kv.watch(key).await {
-            Ok(stream) => stream,
+        let mut collector = Vec::new();
+        let mut keys = match self.kv.keys().await {
+            Ok(keys) => keys.boxed(),
             Err(err) => {
-                eprintln!("Failed to watch key: {}", err);
+                eprintln!("Failed to get keys: {}", err);
                 return FlowIdenfiyResult::None;
             }
         };
 
-        let mut collector = Vec::new();
-        while let Some(entry) = stream.next().await {
-            match entry {
-                Ok(entry) => {
-                    let decoded_flow = ValidationFlow::decode(entry.value);
-                    if let Ok(flow) = decoded_flow {
-                        if id.identify(&flow) {
-                            collector.push(flow);
-                        }
-                    };
-                }
-                Err(err) => {
-                    eprintln!("Failed to get flow: {}", err);
-                }
+        while let Ok(Some(key)) = keys.try_next().await {
+            println!("key: {:?}", key);
+
+            if let Ok(Some(bytes)) = self.kv.get(key).await {
+                let decoded_flow = ValidationFlow::decode(bytes);
+                if let Ok(flow) = decoded_flow {
+                    if id.identify(&flow) {
+                        collector.push(flow);
+                    }
+                };
             }
         }
 
