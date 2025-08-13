@@ -1469,6 +1469,7 @@ dependencies = [
  "env_logger",
  "http 0.0.0",
  "log",
+ "prost 0.14.1",
  "regex",
  "serde",
  "serde_json",

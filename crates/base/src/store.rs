@@ -74,9 +74,10 @@ impl AdapterStore {
         };
 
         while let Ok(Some(key)) = keys.try_next().await {
-            println!("key: {:?}", key);
+            println!("comparing: key: {} pattern {:?}", key, pattern);
 
             if !Self::is_matching_key(&pattern, &key) {
+                println!("Key does not match pattern: {}", key);
                 continue;
             }
 
@@ -108,7 +109,7 @@ impl AdapterStore {
         &self,
         flow: ValidationFlow,
         input_value: Option<Value>,
-    ) -> Option<Vec<u8>> {
+    ) -> Option<Value> {
         if let Some(body) = input_value.clone() {
             let verify_result = verify_flow(flow.clone(), body);
 
@@ -123,10 +124,20 @@ impl AdapterStore {
         let uuid = uuid::Uuid::new_v4().to_string();
         let execution_flow: ExecutionFlow = Self::convert_validation_flow(flow, input_value);
         let bytes = execution_flow.encode_to_vec();
-        let result = self.client.request(uuid, bytes.into()).await;
+        let topic = format!("execution.{}", uuid);
+        let result = self.client.request(topic, bytes.into()).await;
 
         match result {
-            Ok(message) => Some(message.payload.to_vec()),
+            Ok(message) => match Value::decode(message.payload) {
+                Ok(value) => {
+                    println!("Response: {:?}", &value);
+                    Some(value)
+                }
+                Err(err) => {
+                    eprintln!("Failed to decode response from NATS server: {}", err);
+                    return None;
+                }
+            },
             Err(err) => {
                 eprintln!("Failed to send request to NATS server: {}", err);
                 None
@@ -143,8 +154,8 @@ impl AdapterStore {
     }
 
     fn is_matching_key(pattern: &String, key: &String) -> bool {
-        let splitted_pattern = pattern.split("::");
-        let splitted_key = key.split("::").collect::<Vec<&str>>();
+        let splitted_pattern = pattern.split(".");
+        let splitted_key = key.split(".").collect::<Vec<&str>>();
 
         let zip = splitted_pattern.into_iter().zip(splitted_key);
 
@@ -154,9 +165,11 @@ impl AdapterStore {
             }
 
             if pattern_part != key_part {
+                println!("matching: pattern: {} key: {}", pattern_part, key_part);
                 return false;
             }
         }
+        println!("pattern was correct");
         true
     }
 }

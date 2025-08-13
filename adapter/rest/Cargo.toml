@@ -18,3 +18,4 @@ regex = { workspace = true }
 tonic = { workspace = true }
 base = { workspace = true }
 anyhow = { workspace = true }
+prost = { workspace = true }

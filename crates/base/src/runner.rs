@@ -9,20 +9,14 @@ use tokio::sync::broadcast;
 use tonic::transport::Server;
 use tonic_health::pb::health_server::HealthServer;
 
-/*
- * The ServerRunner is intended to be used as a wrapper around a server implementation.
- *  - It will load all environment variables.
- *  - It will load the general configuration and connect to NATS.
- *  - It will expose the HealthStatus endpoint via grpc.
- *  - It will gracefully shutdown the server on Ctrl+C.
- */
-
+/// Context passed to adapter server implementations containing all shared resources
 pub struct ServerContext<C: LoadConfig> {
     pub server_config: Arc<C>,
     pub adapter_config: Arc<AdapterConfig>,
     pub adapter_store: Arc<AdapterStore>,
 }
 
+/// Main server runner that manages the complete adapter lifecycle
 pub struct ServerRunner<C: LoadConfig> {
     context: ServerContext<C>,
     server: Box<dyn AdapterServer<C>>,
@@ -30,7 +24,6 @@ pub struct ServerRunner<C: LoadConfig> {
 }
 
 impl<C: LoadConfig> ServerRunner<C> {
-    /// Load config via `C::load()`, box your server impl.
     pub async fn new<S: AdapterServer<C>>(server: S) -> anyhow::Result<Self> {
         code0_flow::flow_config::load_env_file();
 
@@ -41,6 +34,7 @@ impl<C: LoadConfig> ServerRunner<C> {
             adapter_config.nats_bucket.clone(),
         )
         .await;
+
         let context = ServerContext {
             adapter_store: Arc::new(adapter_store),
             adapter_config: Arc::new(adapter_config),
@@ -56,54 +50,49 @@ impl<C: LoadConfig> ServerRunner<C> {
         })
     }
 
-    /// Run init, spawn `run` with cancel, catch Ctrl+C, then shutdown.
     pub async fn serve(mut self) -> anyhow::Result<()> {
         let config = self.context.adapter_config.clone();
+
         if !config.is_static() {
             let definition_service = FlowUpdateService::from_url(
                 config.aquila_url.clone(),
                 config.definition_path.as_str(),
             );
-
             definition_service.send().await;
         }
 
         if config.is_monitored {
             let health_service =
                 code0_flow::flow_health::HealthService::new(config.nats_url.clone());
+            let address = format!("127.0.0.1:{}", config.grpc_port).parse()?;
 
-            if let Ok(address) = format!("127.0.0.1:{}", config.grpc_port).parse() {
-                println!("Health server started at {}", address);
+            tokio::spawn(async move {
                 let _ = Server::builder()
                     .add_service(HealthServer::new(health_service))
                     .serve(address)
                     .await;
-            } else {
-                println!("Failed to parse address, starting without health server");
-            }
+            });
 
-            todo!("Start the HealthServer");
+            println!("Health server started at 127.0.0.1:{}", config.grpc_port);
         }
 
-        // 1) init
         self.server.init(&self.context).await?;
 
-        // 2) run + listen for shutdown
         let mut rx = self.shutdown_sender.subscribe();
-        let mut srv = self.server;
+        let context = self.context;
+        let mut server = self.server;
+
         let handle = tokio::spawn(async move {
             tokio::select! {
-                res = srv.run(&self.context) => res,
-                _ = rx.recv() => srv.shutdown(&self.context).await,
+                result = server.run(&context) => result,
+                _ = rx.recv() => server.shutdown(&context).await,
             }
         });
 
-        // 3) wait Ctrl+C
         tokio::signal::ctrl_c().await?;
         let _ = self.shutdown_sender.send(());
-
-        // 4) wait task
         handle.await??;
+
         Ok(())
     }
 }

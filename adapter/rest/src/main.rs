@@ -4,6 +4,7 @@ use base::{
     store::FlowIdenfiyResult,
     traits::{IdentifiableFlow, LoadConfig, Server as ServerTrait},
 };
+use code0_flow::flow_config::env_with_default;
 use http::{request::HttpRequest, response::HttpResponse, server::Server};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -12,15 +13,9 @@ use tucana::shared::ValidationFlow;
 
 #[tokio::main]
 async fn main() {
-    print!("Starting server!");
-
     let server = HttpServer { http_server: None };
-    let runner = ServerRunner::new(server).await;
-
-    let _ = match runner {
-        Ok(s) => s.serve().await,
-        Err(e) => Err(e),
-    };
+    let runner = ServerRunner::new(server).await.unwrap();
+    runner.serve().await.unwrap();
 }
 
 struct HttpServer {
@@ -34,21 +29,18 @@ struct RequestRoute {
 impl IdentifiableFlow for RequestRoute {
     fn identify(&self, flow: &ValidationFlow) -> bool {
         let url = extract_flow_setting_field(&flow.settings, "HTTP_URL", "url");
-
         let regex_str = match url.as_deref() {
             Some(s) => s,
             None => return false,
         };
 
-        let regex = match regex::Regex::new(regex_str) {
-            Ok(regex) => regex,
+        match regex::Regex::new(regex_str) {
+            Ok(regex) => regex.is_match(&self.url),
             Err(err) => {
                 log::error!("Failed to compile regex: {}", err);
-                return false;
+                false
             }
-        };
-
-        regex.is_match(&self.url)
+        }
     }
 }
 
@@ -59,87 +51,60 @@ impl ServerTrait<HttpServerConfig> for HttpServer {
         Ok(())
     }
 
-    /// The "serve forever" loop.
     async fn run(&mut self, ctx: &ServerContext<HttpServerConfig>) -> anyhow::Result<()> {
         if let Some(server) = &mut self.http_server {
-            println!("Registering async closure handler...");
-
             server.register_async_closure({
                 let store = Arc::clone(&ctx.adapter_store);
                 move |request: HttpRequest| {
                     let store = Arc::clone(&store);
                     async move {
-                        println!("Handler called with request: {:?}", &request);
-
-                        let pattern =
-                            format!("*::*::{}::{}", request.host, request.method.to_string());
-                        println!("Pattern created: {}", pattern);
-
+                        let pattern = format!("*.*.REST.{}.{:?}", request.host, request.method);
                         let route = RequestRoute {
                             url: request.path.clone(),
                         };
 
-                        println!("About to call get_possible_flow_match...");
-                        let identification_result =
-                            store.get_possible_flow_match(pattern, route).await;
-                        println!("Flow identification completed");
-
-                        match identification_result {
+                        match store.get_possible_flow_match(pattern, route).await {
                             FlowIdenfiyResult::Single(flow) => {
-                                println!("Single flow found, returning success response");
-                                let execution_result =
-                                    store.validate_and_execute_flow(flow, request.body).await;
-
-                                match execution_result {
-                                    Some(result) => {
-                                        let headers = HashMap::new();
-                                        Some(HttpResponse::ok(result, headers));
-                                    }
-                                    None => {
-                                        let headers = HashMap::new();
-                                        Some(HttpResponse::internal_server_error(
-                                            String::from("Flow execution failed"),
-                                            headers,
-                                        ));
-                                    }
-                                }
-
-                                let headers = HashMap::new();
-                                let response = Some(HttpResponse::ok(
-                                    String::from("Flow executed successfully!").into_bytes(),
-                                    headers,
-                                ));
-                                println!("Returning response: {:?}", response.is_some());
-                                return response;
+                                execute_flow(flow, request, store).await
                             }
-                            _ => {
-                                println!("No single flow found, returning default response");
-                                let headers = HashMap::new();
-                                let response = Some(HttpResponse::internal_server_error(
-                                    format!("No Flow found for path: {}", request.path),
-                                    headers,
-                                ));
-                                println!("Returning response: {:?}", response.is_some());
-                                return response;
-                            }
+                            _ => Some(HttpResponse::internal_server_error(
+                                format!("No flow found for path: {}", request.path),
+                                HashMap::new(),
+                            )),
                         }
                     }
                 }
             });
 
-            println!("Starting HTTP server...");
             server.start().await;
-        };
-
+        }
         Ok(())
     }
 
-    /// Called on shutdown signal.
     async fn shutdown(&mut self, _ctx: &ServerContext<HttpServerConfig>) -> anyhow::Result<()> {
         if let Some(server) = &self.http_server {
             server.shutdown();
         }
         Ok(())
+    }
+}
+
+async fn execute_flow(
+    flow: ValidationFlow,
+    request: HttpRequest,
+    store: Arc<base::store::AdapterStore>,
+) -> Option<HttpResponse> {
+    match store.validate_and_execute_flow(flow, request.body).await {
+        Some(result) => {
+            let json = serde_json::to_vec_pretty(&result).unwrap_or_else(|err| {
+                format!(r#"{{"error": "Serialization failed: {}"}}"#, err).into_bytes()
+            });
+            Some(HttpResponse::ok(json, HashMap::new()))
+        }
+        None => Some(HttpResponse::internal_server_error(
+            "Flow execution failed".to_string(),
+            HashMap::new(),
+        )),
     }
 }
 
@@ -150,7 +115,8 @@ struct HttpServerConfig {
 
 impl LoadConfig for HttpServerConfig {
     fn load() -> Self {
-        let port = code0_flow::flow_config::env_with_default("HTTP_SERVER_PORT", 8080);
-        HttpServerConfig { port }
+        Self {
+            port: env_with_default("HTTP_SERVER_PORT", 8082),
+        }
     }
 }
