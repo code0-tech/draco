@@ -25,14 +25,12 @@ impl AdapterStore {
 
         let jetstream = async_nats::jetstream::new(client.clone());
 
-        let res = jetstream
+        let _ = jetstream
             .create_key_value(Config {
                 bucket: bucket.clone(),
                 ..Default::default()
             })
             .await;
-
-        println!("{:?}", &res);
 
         let kv = match jetstream.get_key_value(bucket).await {
             Ok(kv) => kv,

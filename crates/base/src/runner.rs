@@ -6,6 +6,8 @@ use crate::{
 use code0_flow::flow_definition::FlowUpdateService;
 use std::sync::Arc;
 use tokio::sync::broadcast;
+use tonic::transport::Server;
+use tonic_health::pb::health_server::HealthServer;
 
 /*
  * The ServerRunner is intended to be used as a wrapper around a server implementation.
@@ -67,6 +69,19 @@ impl<C: LoadConfig> ServerRunner<C> {
         }
 
         if config.is_monitored {
+            let health_service =
+                code0_flow::flow_health::HealthService::new(config.nats_url.clone());
+
+            if let Ok(address) = format!("127.0.0.1:{}", config.grpc_port).parse() {
+                println!("Health server started at {}", address);
+                let _ = Server::builder()
+                    .add_service(HealthServer::new(health_service))
+                    .serve(address)
+                    .await;
+            } else {
+                println!("Failed to parse address, starting without health server");
+            }
+
             todo!("Start the HealthServer");
         }
 
