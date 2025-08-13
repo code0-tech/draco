@@ -85,13 +85,24 @@ impl ServerTrait<HttpServerConfig> for HttpServer {
                         println!("Flow identification completed");
 
                         match identification_result {
-                            FlowIdenfiyResult::Single(_flow) => {
+                            FlowIdenfiyResult::Single(flow) => {
                                 println!("Single flow found, returning success response");
-                                //TODO: Implement flow execution logic
-                                //let execution_result = ctx
-                                //    .adapter_store
-                                //        .validate_and_execute_flow(flow, None)
-                                //        .await;
+                                let execution_result =
+                                    store.validate_and_execute_flow(flow, request.body).await;
+
+                                match execution_result {
+                                    Some(result) => {
+                                        let headers = HashMap::new();
+                                        Some(HttpResponse::ok(result, headers));
+                                    }
+                                    None => {
+                                        let headers = HashMap::new();
+                                        Some(HttpResponse::internal_server_error(
+                                            String::from("Flow execution failed"),
+                                            headers,
+                                        ));
+                                    }
+                                }
 
                                 let headers = HashMap::new();
                                 let response = Some(HttpResponse::ok(
@@ -139,6 +150,7 @@ struct HttpServerConfig {
 
 impl LoadConfig for HttpServerConfig {
     fn load() -> Self {
-        HttpServerConfig { port: 8081 }
+        let port = code0_flow::flow_config::env_with_default("HTTP_SERVER_PORT", 8080);
+        HttpServerConfig { port }
     }
 }

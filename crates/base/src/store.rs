@@ -23,8 +23,6 @@ impl AdapterStore {
             Err(err) => panic!("Failed to connect to NATS server: {}", err),
         };
 
-        println!("abc");
-
         let jetstream = async_nats::jetstream::new(client.clone());
 
         let res = jetstream
@@ -50,7 +48,7 @@ impl AdapterStore {
     /// It will then loop over every value received from the key and return all flows that matched the IdentifiedFlow trait.
     ///
     /// Arguments:
-    /// - key: The key to get possible flow matches. For example, a REST Flow is never completely identifiable through a single key because the URL is dynamic and wherefore a regex is needed to be applied to the url making it impossible to include the entire URL in the key. In this case the key just reduces the amount of flows that can be a possible match.
+    /// - pattern: The key to get possible flow matches. For example, a REST Flow is never completely identifiable through a single key because the URL is dynamic and wherefore a regex is needed to be applied to the url making it impossible to include the entire URL in the key. In this case the key just reduces the amount of flows that can be a possible match.
     /// - id: The identifier to use for identifying the possible matches. Its just a fine grain identifier that can be used to identify the possible matches. For a REST Flow this will be the regex matcher, for a CRON Flow the trait just return true every time.
     ///
     /// Returns:
@@ -65,7 +63,7 @@ impl AdapterStore {
     /// CRON can have multiple matches, because multiple flows can have the same CRON expression.
     pub async fn get_possible_flow_match<I: IdentifiableFlow>(
         &self,
-        key: String,
+        pattern: String,
         id: I,
     ) -> FlowIdenfiyResult {
         let mut collector = Vec::new();
@@ -79,6 +77,10 @@ impl AdapterStore {
 
         while let Ok(Some(key)) = keys.try_next().await {
             println!("key: {:?}", key);
+
+            if !Self::is_matching_key(&pattern, &key) {
+                continue;
+            }
 
             if let Ok(Some(bytes)) = self.kv.get(key).await {
                 let decoded_flow = ValidationFlow::decode(bytes);
@@ -108,7 +110,7 @@ impl AdapterStore {
         &self,
         flow: ValidationFlow,
         input_value: Option<Value>,
-    ) -> Option<Value> {
+    ) -> Option<Vec<u8>> {
         if let Some(body) = input_value.clone() {
             let verify_result = verify_flow(flow.clone(), body);
 
@@ -126,16 +128,7 @@ impl AdapterStore {
         let result = self.client.request(uuid, bytes.into()).await;
 
         match result {
-            Ok(message) => {
-                let value = Value::decode(message.payload);
-                match value {
-                    Ok(value_result) => Some(value_result),
-                    Err(err) => {
-                        eprintln!("Failed to decode response from NATS server: {}", err);
-                        None
-                    }
-                }
-            }
+            Ok(message) => Some(message.payload.to_vec()),
             Err(err) => {
                 eprintln!("Failed to send request to NATS server: {}", err);
                 None
@@ -149,5 +142,23 @@ impl AdapterStore {
             starting_node: flow.starting_node,
             input_value: input_value,
         }
+    }
+
+    fn is_matching_key(pattern: &String, key: &String) -> bool {
+        let splitted_pattern = pattern.split("::");
+        let splitted_key = key.split("::").collect::<Vec<&str>>();
+
+        let zip = splitted_pattern.into_iter().zip(splitted_key);
+
+        for (pattern_part, key_part) in zip {
+            if pattern_part == "*" {
+                continue;
+            }
+
+            if pattern_part != key_part {
+                return false;
+            }
+        }
+        true
     }
 }
