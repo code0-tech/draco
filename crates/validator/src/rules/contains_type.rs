@@ -1,11 +1,8 @@
 use crate::{get_data_type_by_id, verify_data_type_rules};
 
-use super::violation::{
-    DataTypeIdentifierNotPresentRuleViolation, DataTypeRuleError, DataTypeRuleViolation,
-    GenericKeyNotAllowedRuleViolation, InvalidFormatRuleViolation,
-};
+use super::violation::{DataTypeRuleError, DataTypeRuleViolation, InvalidFormatRuleViolation};
 use tucana::shared::{
-    data_type_identifier::Type, value::Kind, DataType, DataTypeContainsTypeRuleConfig, Value,
+    ExecutionDataType, ExecutionDataTypeContainsTypeRuleConfig, Value, value::Kind,
 };
 
 /// # Item of Collection Validation
@@ -19,46 +16,11 @@ use tucana::shared::{
 /// - Returns an `ItemOfCollectionRuleViolation` if the value is not found in the collection
 ///
 pub fn apply_contains_type(
-    rule: DataTypeContainsTypeRuleConfig,
-    available_data_types: &Vec<DataType>,
+    rule: ExecutionDataTypeContainsTypeRuleConfig,
+    available_data_types: &Vec<ExecutionDataType>,
     body: &Value,
 ) -> Result<(), DataTypeRuleError> {
-    let identifier = match rule.data_type_identifier {
-        Some(optional_data_type) => {
-            if let Some(data_type) = optional_data_type.r#type {
-                match data_type {
-                    Type::DataTypeIdentifier(id) => id,
-                    _ => {
-                        return Err(DataTypeRuleError {
-                            violations: vec![DataTypeRuleViolation::GenericKeyNotAllowed(
-                                GenericKeyNotAllowedRuleViolation {
-                                    key: "identifier".to_string(),
-                                },
-                            )],
-                        })
-                    }
-                }
-            } else {
-                return Err(DataTypeRuleError {
-                    violations: vec![DataTypeRuleViolation::DataTypeIdentifierNotPresent(
-                        DataTypeIdentifierNotPresentRuleViolation {
-                            identifier: "identifier".to_string(),
-                        },
-                    )],
-                });
-            }
-        }
-        None => {
-            return Err(DataTypeRuleError {
-                violations: vec![DataTypeRuleViolation::DataTypeIdentifierNotPresent(
-                    DataTypeIdentifierNotPresentRuleViolation {
-                        identifier: "identifier".to_string(),
-                    },
-                )],
-            });
-        }
-    };
-
+    let identifier = rule.data_type_identifier;
     let real_body = match &body.kind {
         Some(body) => body.clone(),
         None => {

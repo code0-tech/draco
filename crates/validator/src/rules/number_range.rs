@@ -1,4 +1,4 @@
-use tucana::shared::{value::Kind, DataTypeNumberRangeRuleConfig, Value};
+use tucana::shared::{DataTypeNumberRangeRuleConfig, Value, value::Kind};
 
 use super::violation::{
     DataTypeRuleError, DataTypeRuleViolation, NumberInRangeRuleViolation,
@@ -38,7 +38,7 @@ pub fn apply_number_range(
                         type_not_accepted: format!("{:?}", kind),
                     },
                 )],
-            })
+            });
         }
     };
 

@@ -1,17 +1,14 @@
 use super::violation::ContainsKeyRuleViolation;
-use super::violation::DataTypeIdentifierNotPresentRuleViolation;
 use super::violation::DataTypeRuleError;
 use super::violation::DataTypeRuleViolation;
-use super::violation::GenericKeyNotAllowedRuleViolation;
 use super::violation::MissingDataTypeRuleDefinition;
 use crate::get_data_type_by_id;
 use crate::verify_data_type_rules;
-use tucana::shared::data_type_identifier::Type;
+use tucana::shared::ExecutionDataType;
+use tucana::shared::ExecutionDataTypeContainsKeyRuleConfig;
+use tucana::shared::Value;
 use tucana::shared::helper::path::expect_kind;
 use tucana::shared::value::Kind;
-use tucana::shared::DataType;
-use tucana::shared::DataTypeContainsKeyRuleConfig;
-use tucana::shared::Value;
 
 /// # Data Type Validation Behavior
 ///
@@ -28,45 +25,11 @@ use tucana::shared::Value;
 /// - Returns a `MissingDataTypeRuleDefinition` if the referenced data type doesn't exist
 /// - Returns validation errors if the value doesn't match the expected data type
 pub fn apply_contains_key(
-    rule: DataTypeContainsKeyRuleConfig,
+    rule: ExecutionDataTypeContainsKeyRuleConfig,
     body: &Value,
-    available_data_types: &Vec<DataType>,
+    available_data_types: &Vec<ExecutionDataType>,
 ) -> Result<(), DataTypeRuleError> {
-    let identifier = match rule.data_type_identifier {
-        Some(optional_data_type) => {
-            if let Some(data_type) = optional_data_type.r#type {
-                match data_type {
-                    Type::DataTypeIdentifier(id) => id,
-                    _ => {
-                        return Err(DataTypeRuleError {
-                            violations: vec![DataTypeRuleViolation::GenericKeyNotAllowed(
-                                GenericKeyNotAllowedRuleViolation {
-                                    key: "identifier".to_string(),
-                                },
-                            )],
-                        })
-                    }
-                }
-            } else {
-                return Err(DataTypeRuleError {
-                    violations: vec![DataTypeRuleViolation::DataTypeIdentifierNotPresent(
-                        DataTypeIdentifierNotPresentRuleViolation {
-                            identifier: "identifier".to_string(),
-                        },
-                    )],
-                });
-            }
-        }
-        None => {
-            return Err(DataTypeRuleError {
-                violations: vec![DataTypeRuleViolation::DataTypeIdentifierNotPresent(
-                    DataTypeIdentifierNotPresentRuleViolation {
-                        identifier: "identifier".to_string(),
-                    },
-                )],
-            });
-        }
-    };
+    let identifier = rule.data_type_identifier;
 
     if let Some(Kind::StructValue(_)) = &body.kind {
         let value = match expect_kind(&identifier, &body) {
