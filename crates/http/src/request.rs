@@ -6,7 +6,7 @@ use std::{
     str::FromStr,
     usize,
 };
-use tucana::shared::{helper::value::from_json_value, value::Kind, Struct, Value};
+use tucana::shared::{Struct, Value, helper::value::from_json_value, value::Kind};
 
 #[derive(Debug, Clone)]
 pub enum HttpOption {
@@ -161,6 +161,7 @@ pub fn convert_to_http_request(stream: &TcpStream) -> Result<HttpRequest, HttpRe
         line.clear();
     }
 
+    println!("{:?}", &raw_http_request);
     // Parse headers
     let http_request = parse_request(raw_http_request, buf_reader)?;
 
@@ -209,7 +210,7 @@ fn parse_request(
             return Err(HttpResponse::method_not_allowed(
                 format!("Unsupported HTTP method: {}", raw_method),
                 HashMap::new(),
-            ))
+            ));
         }
     };
 
@@ -222,7 +223,7 @@ fn parse_request(
                 return Err(HttpResponse::bad_request(
                     "Invalid content-length header".to_string(),
                     HashMap::new(),
-                ))
+                ));
             }
         };
 

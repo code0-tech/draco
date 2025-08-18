@@ -1,4 +1,4 @@
-use tucana::shared::{value::Kind, DataTypeRegexRuleConfig, Value};
+use tucana::shared::{DataTypeRegexRuleConfig, Value, value::Kind};
 
 use super::violation::{
     DataTypeRuleError, DataTypeRuleViolation, RegexRuleTypeNotAcceptedViolation, RegexRuleViolation,
@@ -36,7 +36,7 @@ pub fn apply_regex(rule: DataTypeRegexRuleConfig, body: &Value) -> Result<(), Da
                         type_not_accepted: format!("StructValue({:?})", s),
                     },
                 )],
-            })
+            });
         }
         Kind::ListValue(l) => {
             return Err(DataTypeRuleError {
@@ -45,7 +45,7 @@ pub fn apply_regex(rule: DataTypeRegexRuleConfig, body: &Value) -> Result<(), Da
                         type_not_accepted: format!("ListValue({:?})", l),
                     },
                 )],
-            })
+            });
         }
     };
 

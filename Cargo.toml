@@ -1,13 +1,14 @@
 [workspace]
-members = ["crates/http", "crates/validator", "adapter/rest"]
+members = ["crates/http", "crates/validator", "adapter/rest", "crates/base"]
+resolver = "3"
 
 [workspace.package]
 version = "0.0.0"
-edition = "2021"
+edition = "2024"
 
 [workspace.dependencies]
-code0-flow = { version = "0.0.13" }
-tucana = { version = "0.0.28", features = ["aquila"] }
+code0-flow = { version = "0.0.14" }
+tucana = { version = "0.0.33", features = ["aquila"] }
 serde_json = { version = "1.0.138" }
 serde = "1.0.219"
 log = "0.4.27"
@@ -18,10 +19,20 @@ quote = "1.0"
 proc-macro2 = "1.0"
 tokio = { version = "1.44.1", features = ["rt-multi-thread"] }
 uuid = { version = "1.16.0", features = ["v4"] }
-tonic = "0.13.0"
+tonic = "0.14.0"
+async-nats = "0.42.0"
+async-trait = "0.1.88"
+anyhow = "1.0.98"
+code0-definition-reader = "0.0.8"
+prost = "0.14.0"
+tonic-health = "0.14.0"
+futures-lite = "2.6.1"
 
 [workspace.dependencies.http]
 path = "../draco/crates/http"
 
 [workspace.dependencies.validator]
 path = "../draco/crates/validator"
+
+[workspace.dependencies.base]
+path = "../draco/crates/base"

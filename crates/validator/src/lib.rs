@@ -9,10 +9,10 @@ use rules::{
     violation::{DataTypeNotFoundRuleViolation, DataTypeRuleError, DataTypeRuleViolation},
 };
 
-use tucana::shared::{data_type_rule::Config, DataType, Flow, Value};
+use tucana::shared::{ExecutionDataType, ValidationFlow, Value, execution_data_type_rule::Config};
 pub struct VerificationResult;
 
-pub fn verify_flow(flow: Flow, body: Value) -> Result<(), DataTypeRuleError> {
+pub fn verify_flow(flow: ValidationFlow, body: Value) -> Result<(), DataTypeRuleError> {
     let input_type = match &flow.input_type_identifier {
         Some(r) => r.clone(),
         None => return Ok(()), //Returns directly because no rule is given. The body is ok and will not be concidered
@@ -41,8 +41,8 @@ pub fn verify_flow(flow: Flow, body: Value) -> Result<(), DataTypeRuleError> {
 //Verifies the rules on the datatype of the body thats given
 fn verify_data_type_rules(
     body: Value,
-    data_type: DataType,
-    availabe_data_types: &Vec<DataType>,
+    data_type: ExecutionDataType,
+    availabe_data_types: &Vec<ExecutionDataType>,
 ) -> Result<(), DataTypeRuleError> {
     let mut violations: Vec<DataTypeRuleViolation> = Vec::new();
     for rule in data_type.rules {
@@ -97,8 +97,6 @@ fn verify_data_type_rules(
                     }
                 };
             }
-            // Draco dont checks Node Rules (Input/Return Type Rules!)
-            _ => continue,
         }
     }
 
@@ -109,11 +107,12 @@ fn verify_data_type_rules(
     }
 }
 
-fn get_data_type_by_id(data_types: &Vec<DataType>, str_id: &String) -> Option<DataType> {
-    let id = str_id.parse::<i32>().unwrap_or(1211);
-
+fn get_data_type_by_id(
+    data_types: &Vec<ExecutionDataType>,
+    identifier: &String,
+) -> Option<ExecutionDataType> {
     data_types
         .iter()
-        .find(|data_type| data_type.variant == id)
+        .find(|data_type| &data_type.identifier == identifier)
         .cloned()
 }
