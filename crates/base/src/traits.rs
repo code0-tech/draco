@@ -15,7 +15,9 @@ use tucana::shared::ValidationFlow;
 ///
 /// # Example
 ///
-/// ```rust
+/// ```ignore
+/// use base::traits::LoadConfig;
+///
 /// #[derive(Clone)]
 /// struct MyConfig {
 ///     port: u16,
@@ -67,7 +69,20 @@ pub trait LoadConfig: Sized + Clone + Send + Sync + 'static {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```ignore
+/// use async_trait::async_trait;
+/// use base::runner::ServerContext;
+/// use base::traits::{LoadConfig, Server};
+///
+/// #[derive(Clone)]
+/// struct MyConfig;
+///
+/// impl LoadConfig for MyConfig {
+///     fn load() -> Self {
+///         todo!()
+///     }
+/// }
+///
 /// struct MyServer {
 ///     // Server state fields
 /// }
@@ -201,9 +216,27 @@ pub trait IdentifiableFlow {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```ignore
+    /// use tucana::shared::ValidationFlow;
+    ///
+    /// use base::traits::IdentifiableFlow;
+    ///
+    /// struct MyFlowMatcher;
+    ///
+    /// impl MyFlowMatcher {
+    ///     fn new() -> Self {
+    ///         MyFlowMatcher {}
+    ///     }
+    /// }
+    ///
+    /// impl IdentifiableFlow for MyFlowMatcher {
+    ///     fn identify(&self, flow: &ValidationFlow) -> bool {
+    ///         todo!()
+    ///     }
+    /// }
+    ///
     /// let matcher = MyFlowMatcher::new();
-    /// let flow = ValidationFlow { /* ... */ };
+    /// let flow = ValidationFlow::default();
     ///
     /// if matcher.identify(&flow) {
     ///     // Handle this specific type of flow
