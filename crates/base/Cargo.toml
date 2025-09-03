@@ -10,11 +10,8 @@ tokio = { workspace = true, features = ["signal"] }
 async-trait = { workspace = true }
 code0-flow = { workspace = true }
 anyhow = { workspace = true }
-code0-definition-reader = { workspace = true }
 tonic = { workspace = true }
 tonic-health = { workspace = true }
-validator = { workspace = true }
 uuid = { workspace = true }
 prost = { workspace = true }
-http = { workspace = true }
 futures-lite = { workspace = true }

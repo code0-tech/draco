@@ -208,17 +208,14 @@ dependencies = [
  "anyhow",
  "async-nats",
  "async-trait",
- "code0-definition-reader",
  "code0-flow",
  "futures-lite",
- "http 0.0.0",
  "prost",
  "tokio",
  "tonic",
  "tonic-health",
  "tucana",
  "uuid",
- "validator",
 ]
 
 [[package]]
@@ -280,9 +277,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "code0-definition-reader"
-version = "0.0.9"
+version = "0.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6bcdd7feee37f0c422c01e2192df7149401ae2ff0d1529a43e1c3d03ac37c779"
+checksum = "ac33bc751c706a7e306931082019aa954c17ae18c31d685fd545bf73716d5c8e"
 dependencies = [
  "serde",
  "serde_json",
@@ -291,9 +288,9 @@ dependencies = [
 
 [[package]]
 name = "code0-flow"
-version = "0.0.14"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee41dc45b3e7f21db03db69796b3070eb26d5fa3a462b60c1cc07e9b949c933b"
+checksum = "1ad60b7f304a4fc9793f2e70dc6ae9ccf8efb4df957dc97eb586722eeb3e6471"
 dependencies = [
  "async-nats",
  "async-trait",
@@ -301,6 +298,8 @@ dependencies = [
  "dotenv",
  "futures-core",
  "log",
+ "regex",
+ "serde_json",
  "tonic",
  "tonic-health",
  "tucana",
@@ -1403,18 +1402,13 @@ dependencies = [
  "anyhow",
  "base",
  "code0-flow",
- "env_logger",
  "http 0.0.0",
  "log",
- "prost",
  "regex",
- "serde",
  "serde_json",
  "tokio",
  "tonic",
  "tucana",
- "uuid",
- "validator",
 ]
 
 [[package]]
@@ -2153,16 +2147,6 @@ dependencies = [
  "getrandom 0.3.2",
  "js-sys",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "validator"
-version = "0.0.0"
-dependencies = [
- "regex",
- "serde",
- "serde_json",
- "tucana",
 ]
 
 [[package]]
