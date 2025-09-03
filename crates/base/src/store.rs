@@ -3,7 +3,7 @@ use async_nats::jetstream::kv::Config;
 use futures_lite::StreamExt;
 use prost::Message;
 use tucana::shared::{ExecutionFlow, ValidationFlow, Value};
-use validator::verify_flow;
+use code0_flow::flow_validator::verify_flow;
 
 pub struct AdapterStore {
     client: async_nats::Client,
