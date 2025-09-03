@@ -208,7 +208,7 @@ dependencies = [
  "anyhow",
  "async-nats",
  "async-trait",
- "code0-definition-reader",
+ "code0-definition-reader 0.0.9",
  "code0-flow",
  "futures-lite",
  "http 0.0.0",
@@ -290,17 +290,30 @@ dependencies = [
 ]
 
 [[package]]
-name = "code0-flow"
-version = "0.0.14"
+name = "code0-definition-reader"
+version = "0.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee41dc45b3e7f21db03db69796b3070eb26d5fa3a462b60c1cc07e9b949c933b"
+checksum = "ac33bc751c706a7e306931082019aa954c17ae18c31d685fd545bf73716d5c8e"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tucana",
+]
+
+[[package]]
+name = "code0-flow"
+version = "0.0.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ad60b7f304a4fc9793f2e70dc6ae9ccf8efb4df957dc97eb586722eeb3e6471"
 dependencies = [
  "async-nats",
  "async-trait",
- "code0-definition-reader",
+ "code0-definition-reader 0.0.10",
  "dotenv",
  "futures-core",
  "log",
+ "regex",
+ "serde_json",
  "tonic",
  "tonic-health",
  "tucana",
