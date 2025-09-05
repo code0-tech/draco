@@ -210,6 +210,7 @@ dependencies = [
  "async-trait",
  "code0-flow",
  "futures-lite",
+ "log",
  "prost",
  "tokio",
  "tonic",

@@ -61,10 +61,10 @@ impl<C: LoadConfig> ServerRunner<C> {
             definition_service.send().await;
         }
 
-        if config.is_monitored {
+        if config.with_health_service {
             let health_service =
                 code0_flow::flow_health::HealthService::new(config.nats_url.clone());
-            let address = format!("127.0.0.1:{}", config.grpc_port).parse()?;
+            let address = format!("{}:{}", config.grpc_host, config.grpc_port).parse()?;
 
             tokio::spawn(async move {
                 let _ = Server::builder()
@@ -73,7 +73,11 @@ impl<C: LoadConfig> ServerRunner<C> {
                     .await;
             });
 
-            println!("Health server started at 127.0.0.1:{}", config.grpc_port);
+            log::info!(
+                "Health server started at {}:{}",
+                config.grpc_host,
+                config.grpc_port
+            );
         }
 
         self.server.init(&self.context).await?;
