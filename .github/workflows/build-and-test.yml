@@ -1,25 +1,89 @@
-name: Build & Test Draco 
+name: Rust CI/CD Pipeline
 
 on:
   push:
+  pull_request:
+    types: [opened, reopened]
+
+env:
+  RUST_BACKTRACE: 1
 
 jobs:
-  draco:
+  # Job 1: Format Check
+  format:
+    name: Format Check
     runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        shell: bash
-
     steps:
-      - uses: actions/checkout@v5
-      - name: Setup rust
-        run: rustup update --no-self-update stable
-      - name: Build crate
-        run: PATH=${{ runner.temp }}/proto/bin:$PATH cargo build
-        env:
-          RUST_BACKTRACE: 'full'
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+  # Job 2: Lint Check
+  lint:
+    name: Lint Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-lint-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features
+
+  # Job 3: Build
+  build:
+    name: Build
+    needs: [ lint, format ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Build project
+        run: cargo build --verbose --all-features
+
+  test:
+    name: Test
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
       - name: Run Tests
-        run: PATH=${{ runner.temp }}/proto/bin:$PATH cargo test 
+        run: PATH=${{ runner.temp }}/proto/bin:$PATH cargo test
         env:
           RUST_BACKTRACE: 'full'
