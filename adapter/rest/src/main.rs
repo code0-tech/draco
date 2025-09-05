@@ -1,7 +1,7 @@
 use base::{
     extract_flow_setting_field,
     runner::{ServerContext, ServerRunner},
-    store::FlowIdenfiyResult,
+    store::FlowIdentifyResult,
     traits::{IdentifiableFlow, LoadConfig, Server as ServerTrait},
 };
 use code0_flow::flow_config::env_with_default;
@@ -64,7 +64,7 @@ impl ServerTrait<HttpServerConfig> for HttpServer {
                         };
 
                         match store.get_possible_flow_match(pattern, route).await {
-                            FlowIdenfiyResult::Single(flow) => {
+                            FlowIdentifyResult::Single(flow) => {
                                 execute_flow(flow, request, store).await
                             }
                             _ => Some(HttpResponse::internal_server_error(

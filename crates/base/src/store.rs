@@ -10,7 +10,7 @@ pub struct AdapterStore {
     kv: async_nats::jetstream::kv::Store,
 }
 
-pub enum FlowIdenfiyResult {
+pub enum FlowIdentifyResult {
     None,
     Single(ValidationFlow),
     Multiple(Vec<ValidationFlow>),
@@ -20,19 +20,24 @@ impl AdapterStore {
     pub async fn from_url(url: String, bucket: String) -> Self {
         let client = match async_nats::connect(url).await {
             Ok(client) => client,
-            Err(err) => panic!("Failed to connect to NATS server: {}", err),
+            Err(err) => panic!("Failed to connect to NATS server: {:?}", err),
         };
 
-        let jetstream = async_nats::jetstream::new(client.clone());
+        let stream = async_nats::jetstream::new(client.clone());
 
-        let _ = jetstream
+        match stream
             .create_key_value(Config {
                 bucket: bucket.clone(),
                 ..Default::default()
             })
-            .await;
+            .await {
+            Ok(_) => {
+                log::info!("Successfully created NATS bucket");
+            },
+            Err(err) => panic!("Failed to create NATS bucket: {:?}", err),
+        }
 
-        let kv = match jetstream.get_key_value(bucket).await {
+        let kv = match stream.get_key_value(bucket).await {
             Ok(kv) => kv,
             Err(err) => panic!("Failed to get key-value store: {}", err),
         };
@@ -63,21 +68,19 @@ impl AdapterStore {
         &self,
         pattern: String,
         id: I,
-    ) -> FlowIdenfiyResult {
+    ) -> FlowIdentifyResult {
         let mut collector = Vec::new();
         let mut keys = match self.kv.keys().await {
             Ok(keys) => keys.boxed(),
             Err(err) => {
-                eprintln!("Failed to get keys: {}", err);
-                return FlowIdenfiyResult::None;
+                log::error!("Failed to get keys: {}", err);
+                return FlowIdentifyResult::None;
             }
         };
 
         while let Ok(Some(key)) = keys.try_next().await {
-            println!("comparing: key: {} pattern {:?}", key, pattern);
 
             if !Self::is_matching_key(&pattern, &key) {
-                println!("Key does not match pattern: {}", key);
                 continue;
             }
 
@@ -92,9 +95,9 @@ impl AdapterStore {
         }
 
         match collector.len() {
-            0 => FlowIdenfiyResult::None,
-            1 => FlowIdenfiyResult::Single(collector[0].clone()),
-            _ => FlowIdenfiyResult::Multiple(collector),
+            0 => FlowIdentifyResult::None,
+            1 => FlowIdentifyResult::Single(collector[0].clone()),
+            _ => FlowIdentifyResult::Multiple(collector),
         }
     }
 
@@ -130,16 +133,15 @@ impl AdapterStore {
         match result {
             Ok(message) => match Value::decode(message.payload) {
                 Ok(value) => {
-                    println!("Response: {:?}", &value);
                     Some(value)
                 }
                 Err(err) => {
-                    eprintln!("Failed to decode response from NATS server: {}", err);
-                    return None;
+                    log::error!("Failed to decode response from NATS server: {:?}", err);
+                    None
                 }
             },
             Err(err) => {
-                eprintln!("Failed to send request to NATS server: {}", err);
+                log::error!("Failed to send request to NATS server: {:?}", err);
                 None
             }
         }
@@ -154,10 +156,9 @@ impl AdapterStore {
     }
 
     fn is_matching_key(pattern: &String, key: &String) -> bool {
-        let splitted_pattern = pattern.split(".");
-        let splitted_key = key.split(".").collect::<Vec<&str>>();
-
-        let zip = splitted_pattern.into_iter().zip(splitted_key);
+        let split_pattern = pattern.split(".");
+        let split_key = key.split(".").collect::<Vec<&str>>();
+        let zip = split_pattern.into_iter().zip(split_key);
 
         for (pattern_part, key_part) in zip {
             if pattern_part == "*" {
@@ -165,11 +166,9 @@ impl AdapterStore {
             }
 
             if pattern_part != key_part {
-                println!("matching: pattern: {} key: {}", pattern_part, key_part);
                 return false;
             }
         }
-        println!("pattern was correct");
         true
     }
 }

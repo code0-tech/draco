@@ -32,6 +32,11 @@ pub struct AdapterConfig {
     /// Port on which the adapter's Health Service server will listen.
     pub grpc_port: u16,
 
+    /// GRPC Host
+    ///
+    /// Host on which the adapter's Health Service server will listen.
+    pub grpc_host: String,
+
     /// Aquila URL
     ///
     /// URL of the Aquila server to connect to.
@@ -45,7 +50,7 @@ pub struct AdapterConfig {
     /// Is Monitored
     ///
     /// If true the Adapter will expose a grpc health service server.
-    pub is_monitored: bool,
+    pub with_health_service: bool,
 }
 
 impl AdapterConfig {
@@ -57,6 +62,7 @@ impl AdapterConfig {
         let nats_bucket =
             code0_flow::flow_config::env_with_default("NATS_BUCKET", String::from("flow_store"));
         let grpc_port = code0_flow::flow_config::env_with_default("GRPC_PORT", 50051);
+        let grpc_host = code0_flow::flow_config::env_with_default("GRPC_HOST", String::from("localhost"));
         let aquila_url = code0_flow::flow_config::env_with_default(
             "AQUILA_URL",
             String::from("grpc://localhost:50051"),
@@ -69,7 +75,7 @@ impl AdapterConfig {
             "DEFINITION_PATH",
             String::from("./definition.yaml"),
         );
-        let is_monitored = code0_flow::flow_config::env_with_default("IS_MONITORED", false);
+        let with_health_service = code0_flow::flow_config::env_with_default("WITH_HEALTH_SERVICE", false);
 
         Self {
             environment,
@@ -77,9 +83,10 @@ impl AdapterConfig {
             mode,
             nats_url,
             grpc_port,
+            grpc_host,
             aquila_url,
             definition_path,
-            is_monitored,
+            with_health_service,
         }
     }
 
