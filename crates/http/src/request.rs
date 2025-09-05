@@ -46,6 +46,12 @@ pub struct HeaderMap {
     pub fields: HashMap<String, String>,
 }
 
+impl Default for HeaderMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HeaderMap {
     pub fn new() -> Self {
         HeaderMap {
@@ -228,10 +234,10 @@ fn parse_request(
         };
 
         let mut body = vec![0; size];
-        if let Ok(_) = buf_reader.read_exact(&mut body) {
-            if let Ok(json_value) = serde_json::from_slice::<serde_json::Value>(&body) {
-                body_values.insert("body".to_string(), from_json_value(json_value));
-            }
+        if buf_reader.read_exact(&mut body).is_ok()
+            && let Ok(json_value) = serde_json::from_slice::<serde_json::Value>(&body)
+        {
+            body_values.insert("body".to_string(), from_json_value(json_value));
         }
     };
 

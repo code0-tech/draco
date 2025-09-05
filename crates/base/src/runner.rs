@@ -73,7 +73,11 @@ impl<C: LoadConfig> ServerRunner<C> {
                     .await;
             });
 
-            log::info!("Health server started at {}:{}", config.grpc_host, config.grpc_port);
+            log::info!(
+                "Health server started at {}:{}",
+                config.grpc_host,
+                config.grpc_port
+            );
         }
 
         self.server.init(&self.context).await?;

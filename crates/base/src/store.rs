@@ -1,9 +1,9 @@
 use crate::traits::IdentifiableFlow;
 use async_nats::jetstream::kv::Config;
+use code0_flow::flow_validator::verify_flow;
 use futures_lite::StreamExt;
 use prost::Message;
 use tucana::shared::{ExecutionFlow, ValidationFlow, Value};
-use code0_flow::flow_validator::verify_flow;
 
 pub struct AdapterStore {
     client: async_nats::Client,
@@ -30,10 +30,11 @@ impl AdapterStore {
                 bucket: bucket.clone(),
                 ..Default::default()
             })
-            .await {
+            .await
+        {
             Ok(_) => {
                 log::info!("Successfully created NATS bucket");
-            },
+            }
             Err(err) => panic!("Failed to create NATS bucket: {:?}", err),
         }
 
@@ -79,17 +80,16 @@ impl AdapterStore {
         };
 
         while let Ok(Some(key)) = keys.try_next().await {
-
             if !Self::is_matching_key(&pattern, &key) {
                 continue;
             }
 
             if let Ok(Some(bytes)) = self.kv.get(key).await {
                 let decoded_flow = ValidationFlow::decode(bytes);
-                if let Ok(flow) = decoded_flow {
-                    if id.identify(&flow) {
-                        collector.push(flow);
-                    }
+                if let Ok(flow) = decoded_flow
+                    && id.identify(&flow)
+                {
+                    collector.push(flow.clone());
                 };
             }
         }
@@ -132,9 +132,7 @@ impl AdapterStore {
 
         match result {
             Ok(message) => match Value::decode(message.payload) {
-                Ok(value) => {
-                    Some(value)
-                }
+                Ok(value) => Some(value),
                 Err(err) => {
                     log::error!("Failed to decode response from NATS server: {:?}", err);
                     None
@@ -151,7 +149,7 @@ impl AdapterStore {
         ExecutionFlow {
             flow_id: flow.flow_id,
             starting_node: flow.starting_node,
-            input_value: input_value,
+            input_value,
         }
     }
 

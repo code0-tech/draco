@@ -17,10 +17,10 @@ pub fn extract_flow_setting_field(
 
         let obj = setting.object.as_ref()?;
         obj.fields.iter().find_map(|(k, v)| {
-            if k == field_name {
-                if let Some(Kind::StringValue(s)) = &v.kind {
-                    return Some(s.clone());
-                }
+            if k == field_name
+                && let Some(Kind::StringValue(s)) = &v.kind
+            {
+                return Some(s.clone());
             }
             None
         })

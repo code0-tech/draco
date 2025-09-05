@@ -62,7 +62,8 @@ impl AdapterConfig {
         let nats_bucket =
             code0_flow::flow_config::env_with_default("NATS_BUCKET", String::from("flow_store"));
         let grpc_port = code0_flow::flow_config::env_with_default("GRPC_PORT", 50051);
-        let grpc_host = code0_flow::flow_config::env_with_default("GRPC_HOST", String::from("localhost"));
+        let grpc_host =
+            code0_flow::flow_config::env_with_default("GRPC_HOST", String::from("localhost"));
         let aquila_url = code0_flow::flow_config::env_with_default(
             "AQUILA_URL",
             String::from("grpc://localhost:50051"),
@@ -75,7 +76,8 @@ impl AdapterConfig {
             "DEFINITION_PATH",
             String::from("./definition.yaml"),
         );
-        let with_health_service = code0_flow::flow_config::env_with_default("WITH_HEALTH_SERVICE", false);
+        let with_health_service =
+            code0_flow::flow_config::env_with_default("WITH_HEALTH_SERVICE", false);
 
         Self {
             environment,
