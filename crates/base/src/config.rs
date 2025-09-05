@@ -74,7 +74,7 @@ impl AdapterConfig {
         let mode = code0_flow::flow_config::env_with_default("MODE", Mode::STATIC);
         let definition_path = code0_flow::flow_config::env_with_default(
             "DEFINITION_PATH",
-            String::from("./definition.yaml"),
+            String::from("./definition"),
         );
         let with_health_service =
             code0_flow::flow_config::env_with_default("WITH_HEALTH_SERVICE", false);
