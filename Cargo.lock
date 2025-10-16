@@ -69,42 +69,6 @@ checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
 name = "async-nats"
-version = "0.42.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08f6da6d49a956424ca4e28fe93656f790d748b469eaccbc7488fec545315180"
-dependencies = [
- "base64",
- "bytes",
- "futures",
- "memchr",
- "nkeys",
- "nuid",
- "once_cell",
- "pin-project",
- "portable-atomic",
- "rand",
- "regex",
- "ring",
- "rustls-native-certs",
- "rustls-pemfile",
- "rustls-webpki 0.102.8",
- "serde",
- "serde_json",
- "serde_nanos",
- "serde_repr",
- "thiserror",
- "time",
- "tokio",
- "tokio-rustls",
- "tokio-util",
- "tokio-websockets",
- "tracing",
- "tryhard",
- "url",
-]
-
-[[package]]
-name = "async-nats"
 version = "0.44.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f834a80c3ab6109b9c8f5ca6661a578cf31e088e831b6ce07c6b23cca04f6742"
@@ -213,7 +177,7 @@ name = "base"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "async-nats 0.42.0",
+ "async-nats",
  "async-trait",
  "code0-flow",
  "futures-lite",
@@ -222,7 +186,7 @@ dependencies = [
  "tokio",
  "tonic",
  "tonic-health",
- "tucana 0.0.33",
+ "tucana",
  "uuid",
 ]
 
@@ -291,7 +255,7 @@ checksum = "5c7b9d030a57501b5c6bcbd667c5241a69335421008b155b55145b4e66e9a325"
 dependencies = [
  "serde",
  "serde_json",
- "tucana 0.0.36",
+ "tucana",
 ]
 
 [[package]]
@@ -300,7 +264,7 @@ version = "0.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "568d497f7aa8cd0cb4e633e8f6e97330b3bbb8b49fcb7c2bdca703a4a9c870e8"
 dependencies = [
- "async-nats 0.44.2",
+ "async-nats",
  "async-trait",
  "code0-definition-reader",
  "dotenv",
@@ -310,7 +274,7 @@ dependencies = [
  "serde_json",
  "tonic",
  "tonic-health",
- "tucana 0.0.36",
+ "tucana",
 ]
 
 [[package]]
@@ -541,27 +505,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "futures"
-version = "0.3.31"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65bc07b1a8bc7c85c5f2e110c476c7389b4554ba72af57d8445ea63a576b0876"
-dependencies = [
- "futures-channel",
- "futures-core",
- "futures-io",
- "futures-sink",
- "futures-task",
- "futures-util",
-]
-
-[[package]]
 name = "futures-channel"
 version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dff15bf788c671c1934e366d07e30c1814a8ef514e1af724a602e8a2fbe1b10"
 dependencies = [
  "futures-core",
- "futures-sink",
 ]
 
 [[package]]
@@ -607,12 +556,9 @@ version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9fa08315bb612088cc391249efdc3bc77536f16c91f6cf495e6fbe85b20a4a81"
 dependencies = [
- "futures-channel",
  "futures-core",
- "futures-io",
  "futures-sink",
  "futures-task",
- "memchr",
  "pin-project-lite",
  "pin-utils",
  "slab",
@@ -690,7 +636,7 @@ dependencies = [
  "log",
  "serde_json",
  "tokio",
- "tucana 0.0.33",
+ "tucana",
 ]
 
 [[package]]
@@ -1381,7 +1327,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tonic",
- "tucana 0.0.33",
+ "tucana",
 ]
 
 [[package]]
@@ -2043,21 +1989,6 @@ checksum = "9fe58ebd5edd976e0fe0f8a14d2a04b7c81ef153ea9a54eebc42e67c2c23b4e5"
 dependencies = [
  "pin-project-lite",
  "tokio",
-]
-
-[[package]]
-name = "tucana"
-version = "0.0.33"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "811247bdfb777b65329d9f8e8ff9e2d405261ef626e149997f4fca57bfe106d4"
-dependencies = [
- "prost",
- "prost-types",
- "serde",
- "serde_json",
- "tonic",
- "tonic-prost",
- "tonic-prost-build",
 ]
 
 [[package]]
