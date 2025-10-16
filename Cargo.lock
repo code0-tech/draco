@@ -69,13 +69,13 @@ checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
 name = "async-nats"
-version = "0.42.0"
+version = "0.44.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08f6da6d49a956424ca4e28fe93656f790d748b469eaccbc7488fec545315180"
+checksum = "f834a80c3ab6109b9c8f5ca6661a578cf31e088e831b6ce07c6b23cca04f6742"
 dependencies = [
  "base64",
  "bytes",
- "futures",
+ "futures-util",
  "memchr",
  "nkeys",
  "nuid",
@@ -96,6 +96,7 @@ dependencies = [
  "time",
  "tokio",
  "tokio-rustls",
+ "tokio-stream",
  "tokio-util",
  "tokio-websockets",
  "tracing",
@@ -248,9 +249,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "code0-definition-reader"
-version = "0.0.10"
+version = "0.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac33bc751c706a7e306931082019aa954c17ae18c31d685fd545bf73716d5c8e"
+checksum = "5c7b9d030a57501b5c6bcbd667c5241a69335421008b155b55145b4e66e9a325"
 dependencies = [
  "serde",
  "serde_json",
@@ -259,9 +260,9 @@ dependencies = [
 
 [[package]]
 name = "code0-flow"
-version = "0.0.16"
+version = "0.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ad60b7f304a4fc9793f2e70dc6ae9ccf8efb4df957dc97eb586722eeb3e6471"
+checksum = "568d497f7aa8cd0cb4e633e8f6e97330b3bbb8b49fcb7c2bdca703a4a9c870e8"
 dependencies = [
  "async-nats",
  "async-trait",
@@ -504,27 +505,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "futures"
-version = "0.3.31"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65bc07b1a8bc7c85c5f2e110c476c7389b4554ba72af57d8445ea63a576b0876"
-dependencies = [
- "futures-channel",
- "futures-core",
- "futures-io",
- "futures-sink",
- "futures-task",
- "futures-util",
-]
-
-[[package]]
 name = "futures-channel"
 version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dff15bf788c671c1934e366d07e30c1814a8ef514e1af724a602e8a2fbe1b10"
 dependencies = [
  "futures-core",
- "futures-sink",
 ]
 
 [[package]]
@@ -570,12 +556,9 @@ version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9fa08315bb612088cc391249efdc3bc77536f16c91f6cf495e6fbe85b20a4a81"
 dependencies = [
- "futures-channel",
  "futures-core",
- "futures-io",
  "futures-sink",
  "futures-task",
- "memchr",
  "pin-project-lite",
  "pin-utils",
  "slab",
@@ -2010,9 +1993,9 @@ dependencies = [
 
 [[package]]
 name = "tucana"
-version = "0.0.33"
+version = "0.0.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "811247bdfb777b65329d9f8e8ff9e2d405261ef626e149997f4fca57bfe106d4"
+checksum = "0addd0c58b8b458ba668404246c428d4c71382f5a83d29ac69649f5c575bdfc4"
 dependencies = [
  "prost",
  "prost-types",

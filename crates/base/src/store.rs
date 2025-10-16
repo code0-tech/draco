@@ -148,8 +148,9 @@ impl AdapterStore {
     fn convert_validation_flow(flow: ValidationFlow, input_value: Option<Value>) -> ExecutionFlow {
         ExecutionFlow {
             flow_id: flow.flow_id,
-            starting_node: flow.starting_node,
+            starting_node_id: flow.starting_node_id,
             input_value,
+            node_functions: flow.node_functions,
         }
     }
 
