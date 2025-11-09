@@ -16,7 +16,7 @@ regex = "1.11.1"
 tokio = { version = "1.44.1", features = ["rt-multi-thread"] }
 uuid = { version = "1.16.0", features = ["v4"] }
 tonic = "0.14.0"
-async-nats = "0.44.2"
+async-nats = "0.45.0"
 async-trait = "0.1.88"
 anyhow = "1.0.98"
 prost = "0.14.0"
