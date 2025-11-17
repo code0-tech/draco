@@ -9,7 +9,9 @@ use http::{request::HttpRequest, response::HttpResponse, server::Server};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tonic::async_trait;
-use tucana::shared::ValidationFlow;
+use tucana::shared::value::Kind;
+use tucana::shared::value::Kind::StructValue;
+use tucana::shared::{Struct, ValidationFlow, Value};
 
 #[tokio::main]
 async fn main() {
@@ -96,10 +98,54 @@ async fn execute_flow(
 ) -> Option<HttpResponse> {
     match store.validate_and_execute_flow(flow, request.body).await {
         Some(result) => {
-            let json = serde_json::to_vec_pretty(&result).unwrap_or_else(|err| {
+            let Value {
+                kind: Some(StructValue(Struct { fields })),
+            } = result
+            else {
+                return None;
+            };
+
+            let Some(headers) = fields.get("headers") else {
+                return None;
+            };
+
+            let Some(status_code) = fields.get("status_code") else {
+                return None;
+            };
+
+            let Some(payload) = fields.get("payload") else {
+                return None;
+            };
+
+            let Value {
+                kind:
+                    Some(StructValue(Struct {
+                        fields: header_fields,
+                    })),
+            } = headers
+            else {
+                return None;
+            };
+            let http_headers: HashMap<String, String> = header_fields
+                .iter()
+                .filter_map(|(k, v)| {
+                    let value = match &v.kind {
+                        Some(Kind::StringValue(s)) if !s.is_empty() => s.clone(),
+                        _ => return None,
+                    };
+
+                    Some((k.clone(), value))
+                })
+                .collect();
+
+            let json = serde_json::to_vec_pretty(&payload).unwrap_or_else(|err| {
                 format!(r#"{{"error": "Serialization failed: {}"}}"#, err).into_bytes()
             });
-            Some(HttpResponse::ok(json, HashMap::new()))
+
+            let Some(Kind::NumberValue(code)) = status_code.kind else {
+                return None;
+            };
+            Some(HttpResponse::new(code as u16, http_headers.clone(), json))
         }
         None => Some(HttpResponse::internal_server_error(
             "Flow execution failed".to_string(),
