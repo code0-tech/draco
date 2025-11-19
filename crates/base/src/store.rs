@@ -101,10 +101,34 @@ impl AdapterStore {
         }
     }
 
-    pub async fn execute(&self, flow: ExecutionFlow, wait_for_result: bool) -> Option<Value> {
+    /// validate_and_execute_flow
+    ///
+    /// This function will validate the flow. If the flow is valid, it will execute (send the flow to the execution and wait for a/multiple result/s) the flow.
+    ///
+    /// Arguments:
+    /// - flow: The flow to be validated and executed.
+    /// - input_value: The input value to be used for the flow execution.
+    pub async fn validate_and_execute_flow(
+        &self,
+        flow: ValidationFlow,
+        input_value: Option<Value>,
+        wait_for_result: bool,
+    ) -> Option<Value> {
+        if let Some(body) = input_value.clone() {
+            let verify_result = verify_flow(flow.clone(), body);
+
+            match verify_result {
+                Ok(()) => {}
+                Err(_err) => {
+                    return None;
+                }
+            };
+        }
+
+        let execution_flow: ExecutionFlow = Self::convert_validation_flow(flow, input_value);
         let uuid = uuid::Uuid::new_v4().to_string();
         let topic = format!("execution.{}", uuid);
-        let bytes = flow.encode_to_vec();
+        let bytes = execution_flow.encode_to_vec();
 
         if wait_for_result {
             match self.client.request(topic, bytes.into()).await {
@@ -129,33 +153,6 @@ impl AdapterStore {
                 }
             }
         }
-    }
-
-    /// validate_and_execute_flow
-    ///
-    /// This function will validate the flow. If the flow is valid, it will execute (send the flow to the execution and wait for a/multiple result/s) the flow.
-    ///
-    /// Arguments:
-    /// - flow: The flow to be validated and executed.
-    /// - input_value: The input value to be used for the flow execution.
-    pub async fn validate_and_execute_flow(
-        &self,
-        flow: ValidationFlow,
-        input_value: Option<Value>,
-    ) -> Option<Value> {
-        if let Some(body) = input_value.clone() {
-            let verify_result = verify_flow(flow.clone(), body);
-
-            match verify_result {
-                Ok(()) => {}
-                Err(_err) => {
-                    return None;
-                }
-            };
-        }
-
-        let execution_flow: ExecutionFlow = Self::convert_validation_flow(flow, input_value);
-        self.execute(execution_flow, true).await
     }
 
     fn convert_validation_flow(flow: ValidationFlow, input_value: Option<Value>) -> ExecutionFlow {

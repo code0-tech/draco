@@ -96,7 +96,7 @@ async fn execute_flow(
     request: HttpRequest,
     store: Arc<base::store::AdapterStore>,
 ) -> Option<HttpResponse> {
-    match store.validate_and_execute_flow(flow, request.body).await {
+    match store.validate_and_execute_flow(flow, request.body, true).await {
         Some(result) => {
             let Value {
                 kind: Some(StructValue(Struct { fields })),

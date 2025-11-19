@@ -1,9 +1,10 @@
 use std::str::FromStr;
 use async_trait::async_trait;
-use chrono::{Local, Utc};
+use chrono::{DateTime, Datelike, Timelike, Utc};
 use cron::Schedule;
 use base::extract_flow_setting_field;
 use base::runner::{ServerContext, ServerRunner};
+use base::store::FlowIdentifyResult;
 use base::traits::{IdentifiableFlow, LoadConfig, Server};
 
 #[derive(Default)]
@@ -27,7 +28,7 @@ async fn main() {
 }
 
 struct Time {
-    utc: Utc
+    now: DateTime<Utc>
 }
 
 impl IdentifiableFlow for Time {
@@ -35,7 +36,7 @@ impl IdentifiableFlow for Time {
         let Some(minute) = extract_flow_setting_field(&flow.settings, "CRON_MINUTE", "minute") else {
             return false;
         };
-        let Some(hour) = extract_flow_setting_field(&flow.settings, "CRON_MOUR", "hour") else {
+        let Some(hour) = extract_flow_setting_field(&flow.settings, "CRON_HOUR", "hour") else {
             return false;
         };
         let Some(dom) = extract_flow_setting_field(&flow.settings, "CRON_DAY_OF_MONTH", "day_of_month") else {
@@ -48,12 +49,15 @@ impl IdentifiableFlow for Time {
             return false;
         };
 
-        let expression = format!("{} {} {} {} {}", minute, hour, dom, month, dow);
+        let expression = format!("* {} {} {} {} {}", minute, hour, dom, month, dow);
+        let schedule = Schedule::from_str(expression.as_str()).unwrap();
+        let next = schedule.upcoming(Utc).next().unwrap();
 
-
-
-
-        todo!()
+        self.now.year() == next.year() &&
+            self.now.month() == next.month() &&
+            self.now.day() == next.day() &&
+            self.now.hour() == next.hour() &&
+            self.now.minute() == next.minute()
     }
 }
 
@@ -66,19 +70,28 @@ impl Server<CronConfig> for Cron {
     async fn run(&mut self, ctx: &ServerContext<CronConfig>) -> anyhow::Result<()> {
         let expression = "0 * * * * *";
         let schedule = Schedule::from_str(expression).expect("Failed to parse CRON expression");
+        let pattern = "*.*.CRON.*";
 
         loop {
             let now = Utc::now();
             if let Some(next) = schedule.upcoming(Utc).take(1).next() {
                 let until_next = next - now;
                 tokio::time::sleep(until_next.to_std()?).await;
-                println!(
-                    "Running every minute. Current time: {}",
-                    Local::now().format("%Y-%m-%d %H:%M:%S")
-                );
+
+                let time = Time { now };
+                match ctx.adapter_store.get_possible_flow_match(pattern.to_string(), time).await {
+                    FlowIdentifyResult::None => {}
+                    FlowIdentifyResult::Single(flow) => {
+                        ctx.adapter_store.validate_and_execute_flow(flow, None, false).await;
+                    }
+                    FlowIdentifyResult::Multiple(flows) => {
+                        for flow in flows {
+                            ctx.adapter_store.validate_and_execute_flow(flow, None, false).await;
+                        }
+                    },
+                }
             }
         }
-        Ok(())
     }
 
     async fn shutdown(&mut self, _ctx: &ServerContext<CronConfig>) -> anyhow::Result<()> {
