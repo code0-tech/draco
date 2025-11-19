@@ -341,12 +341,10 @@ name = "cron"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "async-nats",
  "async-trait",
  "base",
  "chrono",
  "cron 0.15.0",
- "cron-parser",
  "tokio",
  "tucana",
 ]
@@ -360,15 +358,6 @@ dependencies = [
  "chrono",
  "once_cell",
  "winnow",
-]
-
-[[package]]
-name = "cron-parser"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "702858ce99daf23d8822fb22ec363b641b4bdcd9704182211fc113b01870f6de"
-dependencies = [
- "chrono",
 ]
 
 [[package]]

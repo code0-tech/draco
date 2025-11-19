@@ -23,7 +23,6 @@ prost = "0.14.0"
 tonic-health = "0.14.0"
 futures-lite = "2.6.1"
 chrono = "0.4.42"
-cron-parser = "0.11.0"
 cron = "0.15.0"
 
 [workspace.dependencies.http]

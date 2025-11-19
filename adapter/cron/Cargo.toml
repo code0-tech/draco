@@ -5,10 +5,8 @@ edition.workspace = true
 
 [dependencies]
 tokio = {workspace = true}
-cron-parser = {workspace = true}
 chrono = {workspace = true}
 cron = {workspace = true}
-async-nats = {workspace = true}
 base = {workspace = true}
 tucana = {workspace = true}
 async-trait =  {workspace = true}
