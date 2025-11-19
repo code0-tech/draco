@@ -12,7 +12,7 @@ See: [Installation]()
 | HTTP | 🚧 |
 | MQTT | 📝 |
 | AMQP | 📝 |
-| Cron-Jobs | 📝 |
+| Cron-Jobs | 🚧 |
 
 **Legend:**
 - ✅ Done: Fully implemented and ready to use

@@ -73,7 +73,7 @@ impl Server<CronConfig> for Cron {
 
     async fn run(&mut self, ctx: &ServerContext<CronConfig>) -> anyhow::Result<()> {
         let expression = "0 * * * * *";
-        let schedule = Schedule::from_str(expression).expect("Failed to parse CRON expression");
+        let schedule = Schedule::from_str(expression)?;
         let pattern = "*.*.CRON.*";
 
         loop {
