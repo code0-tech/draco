@@ -1,15 +1,14 @@
-use std::str::FromStr;
 use async_trait::async_trait;
-use chrono::{DateTime, Datelike, Timelike, Utc};
-use cron::Schedule;
 use base::extract_flow_setting_field;
 use base::runner::{ServerContext, ServerRunner};
 use base::store::FlowIdentifyResult;
 use base::traits::{IdentifiableFlow, LoadConfig, Server};
+use chrono::{DateTime, Datelike, Timelike, Utc};
+use cron::Schedule;
+use std::str::FromStr;
 
 #[derive(Default)]
-struct Cron {
-}
+struct Cron {}
 
 #[derive(Clone)]
 struct CronConfig {}
@@ -28,24 +27,29 @@ async fn main() {
 }
 
 struct Time {
-    now: DateTime<Utc>
+    now: DateTime<Utc>,
 }
 
 impl IdentifiableFlow for Time {
     fn identify(&self, flow: &tucana::shared::ValidationFlow) -> bool {
-        let Some(minute) = extract_flow_setting_field(&flow.settings, "CRON_MINUTE", "minute") else {
+        let Some(minute) = extract_flow_setting_field(&flow.settings, "CRON_MINUTE", "minute")
+        else {
             return false;
         };
         let Some(hour) = extract_flow_setting_field(&flow.settings, "CRON_HOUR", "hour") else {
             return false;
         };
-        let Some(dom) = extract_flow_setting_field(&flow.settings, "CRON_DAY_OF_MONTH", "day_of_month") else {
+        let Some(dom) =
+            extract_flow_setting_field(&flow.settings, "CRON_DAY_OF_MONTH", "day_of_month")
+        else {
             return false;
         };
         let Some(month) = extract_flow_setting_field(&flow.settings, "CRON_MONTH", "month") else {
             return false;
         };
-        let Some(dow) = extract_flow_setting_field(&flow.settings, "CRON_DAY_OF_WEEK", "day_of_week") else {
+        let Some(dow) =
+            extract_flow_setting_field(&flow.settings, "CRON_DAY_OF_WEEK", "day_of_week")
+        else {
             return false;
         };
 
@@ -53,11 +57,11 @@ impl IdentifiableFlow for Time {
         let schedule = Schedule::from_str(expression.as_str()).unwrap();
         let next = schedule.upcoming(Utc).next().unwrap();
 
-        self.now.year() == next.year() &&
-            self.now.month() == next.month() &&
-            self.now.day() == next.day() &&
-            self.now.hour() == next.hour() &&
-            self.now.minute() == next.minute()
+        self.now.year() == next.year()
+            && self.now.month() == next.month()
+            && self.now.day() == next.day()
+            && self.now.hour() == next.hour()
+            && self.now.minute() == next.minute()
     }
 }
 
@@ -79,16 +83,24 @@ impl Server<CronConfig> for Cron {
                 tokio::time::sleep(until_next.to_std()?).await;
 
                 let time = Time { now };
-                match ctx.adapter_store.get_possible_flow_match(pattern.to_string(), time).await {
+                match ctx
+                    .adapter_store
+                    .get_possible_flow_match(pattern.to_string(), time)
+                    .await
+                {
                     FlowIdentifyResult::None => {}
                     FlowIdentifyResult::Single(flow) => {
-                        ctx.adapter_store.validate_and_execute_flow(flow, None, false).await;
+                        ctx.adapter_store
+                            .validate_and_execute_flow(flow, None, false)
+                            .await;
                     }
                     FlowIdentifyResult::Multiple(flows) => {
                         for flow in flows {
-                            ctx.adapter_store.validate_and_execute_flow(flow, None, false).await;
+                            ctx.adapter_store
+                                .validate_and_execute_flow(flow, None, false)
+                                .await;
                         }
-                    },
+                    }
                 }
             }
         }
