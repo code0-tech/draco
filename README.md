@@ -11,7 +11,6 @@ See: [Installation]()
 |----------|--------|
 | HTTP | 🚧 |
 | MQTT | 📝 |
-| AMQP | 📝 |
 | Cron-Jobs | 🚧 |
 
 **Legend:**
