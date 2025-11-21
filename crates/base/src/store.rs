@@ -6,8 +6,8 @@ use prost::Message;
 use tucana::shared::{ExecutionFlow, ValidationFlow, Value};
 
 pub struct AdapterStore {
-    client: async_nats::Client,
-    kv: async_nats::jetstream::kv::Store,
+    pub client: async_nats::Client,
+    pub kv: async_nats::jetstream::kv::Store,
 }
 
 pub enum FlowIdentifyResult {
@@ -56,7 +56,7 @@ impl AdapterStore {
     /// - id: The identifier to use for identifying the possible matches. Its just a fine grain identifier that can be used to identify the possible matches. For a REST Flow this will be the regex matcher, for a CRON Flow the trait just return true every time.
     ///
     /// Returns:
-    /// - FlowIdenfiyResult: The result of the flow identification process. This can be one of the following:
+    /// - FlowIdentifyResult: The result of the flow identification process. This can be one of the following:
     ///     - None: No flows matched the identifier.
     ///     - Single(ValidationFlow): A single flow matched the identifier.
     ///     - Multiple(Vec<ValidationFlow>): Multiple flows matched the identifier.
@@ -112,6 +112,7 @@ impl AdapterStore {
         &self,
         flow: ValidationFlow,
         input_value: Option<Value>,
+        wait_for_result: bool,
     ) -> Option<Value> {
         if let Some(body) = input_value.clone() {
             let verify_result = verify_flow(flow.clone(), body);
@@ -124,23 +125,32 @@ impl AdapterStore {
             };
         }
 
-        let uuid = uuid::Uuid::new_v4().to_string();
         let execution_flow: ExecutionFlow = Self::convert_validation_flow(flow, input_value);
-        let bytes = execution_flow.encode_to_vec();
+        let uuid = uuid::Uuid::new_v4().to_string();
         let topic = format!("execution.{}", uuid);
-        let result = self.client.request(topic, bytes.into()).await;
+        let bytes = execution_flow.encode_to_vec();
 
-        match result {
-            Ok(message) => match Value::decode(message.payload) {
-                Ok(value) => Some(value),
+        if wait_for_result {
+            match self.client.request(topic, bytes.into()).await {
+                Ok(message) => match Value::decode(message.payload) {
+                    Ok(value) => Some(value),
+                    Err(err) => {
+                        log::error!("Failed to decode response from NATS server: {:?}", err);
+                        None
+                    }
+                },
                 Err(err) => {
-                    log::error!("Failed to decode response from NATS server: {:?}", err);
+                    log::error!("Failed to send request to NATS server: {:?}", err);
                     None
                 }
-            },
-            Err(err) => {
-                log::error!("Failed to send request to NATS server: {:?}", err);
-                None
+            }
+        } else {
+            match self.client.publish(topic, bytes.into()).await {
+                Ok(_) => None,
+                Err(err) => {
+                    log::error!("Failed to send request to NATS server: {:?}", err);
+                    None
+                }
             }
         }
     }
