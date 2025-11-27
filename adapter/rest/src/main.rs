@@ -16,8 +16,14 @@ use tucana::shared::{Struct, ValidationFlow, Value};
 #[tokio::main]
 async fn main() {
     let server = HttpServer { http_server: None };
-    let runner = ServerRunner::new(server).await.unwrap();
-    runner.serve().await.unwrap();
+    let runner = match ServerRunner::new(server).await {
+        Ok(runner) => runner,
+        Err(err) => panic!("Failed to create server runner: {:?}", err),
+    };
+    match runner.serve().await {
+        Ok(_) => (),
+        Err(err) => panic!("Failed to start server runner: {:?}", err),
+    };
 }
 
 struct HttpServer {
