@@ -3,8 +3,8 @@ use crate::{
     store::AdapterStore,
     traits::{LoadConfig, Server as AdapterServer},
 };
-use std::sync::Arc;
 use code0_flow::flow_service::FlowUpdateService;
+use std::sync::Arc;
 use tokio::signal;
 use tonic::transport::Server;
 use tonic_health::pb::health_server::HealthServer;

@@ -22,7 +22,7 @@ impl AdapterStore {
             Ok(client) => {
                 log::info!("Successfully connected to NATS");
                 client
-            },
+            }
             Err(err) => panic!("Failed to connect to NATS server: {:?}", err),
         };
 
@@ -45,7 +45,7 @@ impl AdapterStore {
             Ok(kv) => {
                 log::info!("Successfully got NATS bucket");
                 kv
-            },
+            }
             Err(err) => panic!("Failed to get key-value store: {}", err),
         };
 
