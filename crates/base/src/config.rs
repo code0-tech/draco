@@ -51,6 +51,11 @@ pub struct AdapterConfig {
     ///
     /// If true the Adapter will expose a grpc health service server.
     pub with_health_service: bool,
+
+    /// Variant
+    ///
+    /// The Variant of Draco. E.g. Http, Cron...
+    pub draco_variant: String,
 }
 
 impl AdapterConfig {
@@ -79,6 +84,8 @@ impl AdapterConfig {
         let with_health_service =
             code0_flow::flow_config::env_with_default("WITH_HEALTH_SERVICE", false);
 
+        let draco_variant =
+            code0_flow::flow_config::env_with_default("DRACO_VARIANT", String::from("None"));
         Self {
             environment,
             nats_bucket,
@@ -89,6 +96,7 @@ impl AdapterConfig {
             aquila_url,
             definition_path,
             with_health_service,
+            draco_variant,
         }
     }
 

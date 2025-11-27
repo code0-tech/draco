@@ -7,8 +7,8 @@ version = "0.0.0"
 edition = "2024"
 
 [workspace.dependencies]
-code0-flow = { version = "0.0.18" }
-tucana = { version = "0.0.39", features = ["aquila"] }
+code0-flow = { version = "0.0.19" }
+tucana = { version = "0.0.42", features = ["aquila"] }
 serde_json = { version = "1.0.138" }
 log = "0.4.27"
 env_logger = "0.11.8"
@@ -16,7 +16,7 @@ regex = "1.11.1"
 tokio = { version = "1.44.1", features = ["rt-multi-thread"] }
 uuid = { version = "1.16.0", features = ["v4"] }
 tonic = "0.14.0"
-async-nats = "0.44.2"
+async-nats = "0.45.0"
 async-trait = "0.1.88"
 anyhow = "1.0.98"
 prost = "0.14.0"

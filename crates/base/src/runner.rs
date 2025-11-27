@@ -3,9 +3,9 @@ use crate::{
     store::AdapterStore,
     traits::{LoadConfig, Server as AdapterServer},
 };
-use code0_flow::flow_definition::FlowUpdateService;
+use code0_flow::flow_service::FlowUpdateService;
 use std::sync::Arc;
-use tokio::sync::broadcast;
+use tokio::signal;
 use tonic::transport::Server;
 use tonic_health::pb::health_server::HealthServer;
 
@@ -20,11 +20,14 @@ pub struct ServerContext<C: LoadConfig> {
 pub struct ServerRunner<C: LoadConfig> {
     context: ServerContext<C>,
     server: Box<dyn AdapterServer<C>>,
-    shutdown_sender: broadcast::Sender<()>,
 }
 
 impl<C: LoadConfig> ServerRunner<C> {
     pub async fn new<S: AdapterServer<C>>(server: S) -> anyhow::Result<Self> {
+        env_logger::Builder::from_default_env()
+            .filter_level(log::LevelFilter::Debug)
+            .init();
+
         code0_flow::flow_config::load_env_file();
 
         let adapter_config = AdapterConfig::from_env();
@@ -41,17 +44,15 @@ impl<C: LoadConfig> ServerRunner<C> {
             server_config: Arc::new(server_config),
         };
 
-        let (shutdown_tx, _) = broadcast::channel(1);
-
         Ok(Self {
             context,
             server: Box::new(server),
-            shutdown_sender: shutdown_tx,
         })
     }
 
-    pub async fn serve(mut self) -> anyhow::Result<()> {
+    pub async fn serve(self) -> anyhow::Result<()> {
         let config = self.context.adapter_config.clone();
+        log::info!("Starting Draco Variant: {}", config.draco_variant);
 
         if !config.is_static() {
             let definition_service = FlowUpdateService::from_url(
@@ -61,42 +62,84 @@ impl<C: LoadConfig> ServerRunner<C> {
             definition_service.send().await;
         }
 
-        if config.with_health_service {
+        let health_task = if config.with_health_service {
             let health_service =
                 code0_flow::flow_health::HealthService::new(config.nats_url.clone());
             let address = format!("{}:{}", config.grpc_host, config.grpc_port).parse()?;
 
-            tokio::spawn(async move {
-                let _ = Server::builder()
-                    .add_service(HealthServer::new(health_service))
-                    .serve(address)
-                    .await;
-            });
-
             log::info!(
-                "Health server started at {}:{}",
+                "Health server starting at {}:{}",
                 config.grpc_host,
                 config.grpc_port
             );
+
+            Some(tokio::spawn(async move {
+                if let Err(err) = Server::builder()
+                    .add_service(HealthServer::new(health_service))
+                    .serve(address)
+                    .await
+                {
+                    log::error!("Health server error: {:?}", err);
+                } else {
+                    log::info!("Health server stopped gracefully");
+                }
+            }))
+        } else {
+            None
+        };
+
+        let ServerRunner {
+            mut server,
+            context,
+        } = self;
+
+        // Init the adapter server (e.g. create underlying HTTP server)
+        server.init(&context).await?;
+        log::info!("Draco successfully initialized.");
+
+        match health_task {
+            Some(mut ht) => {
+                tokio::select! {
+                    // Main adapter server loop finished on its own
+                    res = server.run(&context) => {
+                        log::warn!("Adapter server finished, shutting down");
+                        ht.abort();
+                        res?;
+                    }
+
+                    // Health server ended first
+                    _ = &mut ht => {
+                        log::warn!("Health server task finished, shutting down adapter");
+                        server.shutdown(&context).await?;
+                    }
+
+                    // Ctrl+C / SIGINT
+                    _ = signal::ctrl_c() => {
+                        log::info!("Ctrl+C/Exit signal received, shutting down adapter");
+                        server.shutdown(&context).await?;
+                        ht.abort();
+                    }
+                }
+            }
+
+            None => {
+                tokio::select! {
+                    // Adapter server loop ends on its own
+                    res = server.run(&context) => {
+                        log::warn!("Adapter server finished");
+                        res?;
+                    }
+
+                    // Ctrl+C / SIGINT
+                    _ = signal::ctrl_c() => {
+                        log::info!("Ctrl+C/Exit signal received, shutting down adapter");
+                        server.shutdown(&context).await?;
+                    }
+                }
+            }
         }
 
-        self.server.init(&self.context).await?;
-
-        let mut rx = self.shutdown_sender.subscribe();
-        let context = self.context;
-        let mut server = self.server;
-
-        let handle = tokio::spawn(async move {
-            tokio::select! {
-                result = server.run(&context) => result,
-                _ = rx.recv() => server.shutdown(&context).await,
-            }
-        });
-
-        tokio::signal::ctrl_c().await?;
-        let _ = self.shutdown_sender.send(());
-        handle.await??;
-
+        log::info!("Draco shutdown complete");
         Ok(())
     }
 }

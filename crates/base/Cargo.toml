@@ -16,3 +16,4 @@ uuid = { workspace = true }
 prost = { workspace = true }
 futures-lite = { workspace = true }
 log = { workspace = true }
+env_logger = {workspace = true}

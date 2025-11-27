@@ -19,7 +19,10 @@ pub enum FlowIdentifyResult {
 impl AdapterStore {
     pub async fn from_url(url: String, bucket: String) -> Self {
         let client = match async_nats::connect(url).await {
-            Ok(client) => client,
+            Ok(client) => {
+                log::info!("Successfully connected to NATS");
+                client
+            }
             Err(err) => panic!("Failed to connect to NATS server: {:?}", err),
         };
 
@@ -33,13 +36,16 @@ impl AdapterStore {
             .await
         {
             Ok(_) => {
-                log::info!("Successfully created NATS bucket");
+                log::info!("Successfully created NATS bucket/bucket already exists");
             }
             Err(err) => panic!("Failed to create NATS bucket: {:?}", err),
         }
 
         let kv = match stream.get_key_value(bucket).await {
-            Ok(kv) => kv,
+            Ok(kv) => {
+                log::info!("Successfully got NATS bucket");
+                kv
+            }
             Err(err) => panic!("Failed to get key-value store: {}", err),
         };
 
