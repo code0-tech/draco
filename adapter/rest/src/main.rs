@@ -55,12 +55,17 @@ impl IdentifiableFlow for RequestRoute {
 #[async_trait]
 impl ServerTrait<HttpServerConfig> for HttpServer {
     async fn init(&mut self, ctx: &ServerContext<HttpServerConfig>) -> anyhow::Result<()> {
-        self.http_server = Some(Server::new(ctx.server_config.port));
+        log::info!("Initializing http server");
+        self.http_server = Some(Server::new(
+            ctx.server_config.host.clone(),
+            ctx.server_config.port,
+        ));
         Ok(())
     }
 
     async fn run(&mut self, ctx: &ServerContext<HttpServerConfig>) -> anyhow::Result<()> {
         if let Some(server) = &mut self.http_server {
+            log::info!("Running http server");
             server.register_async_closure({
                 let store = Arc::clone(&ctx.adapter_store);
                 move |request: HttpRequest| {
@@ -163,12 +168,14 @@ async fn execute_flow(
 #[derive(Clone)]
 struct HttpServerConfig {
     port: u16,
+    host: String,
 }
 
 impl LoadConfig for HttpServerConfig {
     fn load() -> Self {
         Self {
             port: env_with_default("HTTP_SERVER_PORT", 8082),
+            host: env_with_default("HTTP_SERVER_HOST", String::from("0.0.0.0")),
         }
     }
 }

@@ -27,14 +27,16 @@ where
 }
 
 pub struct Server {
+    host: String,
     port: u16,
     handlers: Arc<Vec<Box<dyn AsyncHandler>>>,
     shutdown_tx: Option<tokio::sync::broadcast::Sender<()>>,
 }
 
 impl Server {
-    pub fn new(port: u16) -> Self {
+    pub fn new(host: String, port: u16) -> Self {
         Server {
+            host,
             port,
             handlers: Arc::new(Vec::new()),
             shutdown_tx: None,
@@ -74,8 +76,8 @@ impl Server {
     }
 
     async fn run_server(&self, shutdown_rx: &mut tokio::sync::broadcast::Receiver<()>) {
-        let url = format!("127.0.0.1:{}", self.port);
-
+        let url = format!("{}:{}", self.host, self.port);
+        log::info!("Starting http server on {}", &url);
         let listener = match TcpListener::bind(&url) {
             Ok(listener) => {
                 listener
