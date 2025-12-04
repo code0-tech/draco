@@ -76,7 +76,7 @@ impl Server {
     }
 
     async fn run_server(&self, shutdown_rx: &mut tokio::sync::broadcast::Receiver<()>) {
-        let url = format!("{}:{}",self.host, self.port);
+        let url = format!("{}:{}", self.host, self.port);
         log::info!("Starting http server on {}", &url);
         let listener = match TcpListener::bind(&url) {
             Ok(listener) => {

@@ -56,7 +56,10 @@ impl IdentifiableFlow for RequestRoute {
 impl ServerTrait<HttpServerConfig> for HttpServer {
     async fn init(&mut self, ctx: &ServerContext<HttpServerConfig>) -> anyhow::Result<()> {
         log::info!("Initializing http server");
-        self.http_server = Some(Server::new(ctx.server_config.host.clone(), ctx.server_config.port));
+        self.http_server = Some(Server::new(
+            ctx.server_config.host.clone(),
+            ctx.server_config.port,
+        ));
         Ok(())
     }
 
