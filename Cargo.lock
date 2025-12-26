@@ -259,9 +259,9 @@ dependencies = [
 
 [[package]]
 name = "code0-flow"
-version = "0.0.20"
+version = "0.0.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e043a18574b43e668cc4da4f9dc5209c228ee9b464f621b6928f410c55445f41"
+checksum = "7d96a21ced515a491d2991c203b90d71d77f00b1818060c2f4a8038737d343ed"
 dependencies = [
  "async-nats",
  "async-trait",
@@ -1061,9 +1061,9 @@ checksum = "f38d5652c16fde515bb1ecef450ab0f6a219d619a7274976324d5e377f7dceba"
 
 [[package]]
 name = "pbjson"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "898bac3fa00d0ba57a4e8289837e965baa2dee8c3749f3b11d45a64b4223d9c3"
+checksum = "e8edd1efdd8ab23ba9cb9ace3d9987a72663d5d7c9f74fa00b51d6213645cf6c"
 dependencies = [
  "base64",
  "serde",
@@ -1071,9 +1071,9 @@ dependencies = [
 
 [[package]]
 name = "pbjson-build"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af22d08a625a2213a78dbb0ffa253318c5c79ce3133d32d296655a7bdfb02095"
+checksum = "2ed4d5c6ae95e08ac768883c8401cf0e8deb4e6e1d6a4e1fd3d2ec4f0ec63200"
 dependencies = [
  "heck",
  "itertools",
@@ -1083,9 +1083,9 @@ dependencies = [
 
 [[package]]
 name = "pbjson-types"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e748e28374f10a330ee3bb9f29b828c0ac79831a32bab65015ad9b661ead526"
+checksum = "a14e2757d877c0f607a82ce1b8560e224370f159d66c5d52eb55ea187ef0350e"
 dependencies = [
  "bytes",
  "chrono",
@@ -2042,9 +2042,9 @@ dependencies = [
 
 [[package]]
 name = "tucana"
-version = "0.0.43"
+version = "0.0.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a97d0f9945f8993b62cef0504a8a874651f1ab56cb63307c20db9402e83ed0ad"
+checksum = "895831395ed4175f80d471ae0d7480050d68e43b48482bf899919fbbd5a0aa92"
 dependencies = [
  "pbjson",
  "pbjson-build",
