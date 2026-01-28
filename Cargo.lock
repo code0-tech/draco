@@ -105,6 +105,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-nats"
+version = "0.46.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df5af9ebfb0a14481d3eaf6101e6391261e4f30d25b26a7635ade8a39482ded0"
+dependencies = [
+ "base64",
+ "bytes",
+ "futures-util",
+ "memchr",
+ "nkeys",
+ "nuid",
+ "once_cell",
+ "pin-project",
+ "portable-atomic",
+ "rand",
+ "regex",
+ "ring",
+ "rustls-native-certs",
+ "rustls-pki-types",
+ "rustls-webpki 0.102.8",
+ "serde",
+ "serde_json",
+ "serde_nanos",
+ "serde_repr",
+ "thiserror",
+ "time",
+ "tokio",
+ "tokio-rustls",
+ "tokio-stream",
+ "tokio-util",
+ "tokio-websockets",
+ "tracing",
+ "tryhard",
+ "url",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -177,7 +214,7 @@ name = "base"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "async-nats",
+ "async-nats 0.45.0",
  "async-trait",
  "code0-flow",
  "env_logger",
@@ -187,7 +224,7 @@ dependencies = [
  "tokio",
  "tonic",
  "tonic-health",
- "tucana",
+ "tucana 0.0.50",
  "uuid",
 ]
 
@@ -259,11 +296,11 @@ dependencies = [
 
 [[package]]
 name = "code0-flow"
-version = "0.0.22"
+version = "0.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d96a21ced515a491d2991c203b90d71d77f00b1818060c2f4a8038737d343ed"
+checksum = "f4ebec2afaa7c154191715c695390a7552693d0664efff399633150972f1accb"
 dependencies = [
- "async-nats",
+ "async-nats 0.46.0",
  "async-trait",
  "dotenv",
  "futures-core",
@@ -273,7 +310,7 @@ dependencies = [
  "serde_json",
  "tonic",
  "tonic-health",
- "tucana",
+ "tucana 0.0.52",
  "walkdir",
 ]
 
@@ -636,7 +673,7 @@ dependencies = [
  "log",
  "serde_json",
  "tokio",
- "tucana",
+ "tucana 0.0.50",
 ]
 
 [[package]]
@@ -1373,7 +1410,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tonic",
- "tucana",
+ "tucana 0.0.50",
 ]
 
 [[package]]
@@ -2045,6 +2082,26 @@ name = "tucana"
 version = "0.0.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "895831395ed4175f80d471ae0d7480050d68e43b48482bf899919fbbd5a0aa92"
+dependencies = [
+ "pbjson",
+ "pbjson-build",
+ "pbjson-types",
+ "prost",
+ "prost-build",
+ "prost-types",
+ "serde",
+ "serde_json",
+ "tonic",
+ "tonic-build",
+ "tonic-prost",
+ "tonic-prost-build",
+]
+
+[[package]]
+name = "tucana"
+version = "0.0.52"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63e1cec14d8140417b330fffd1fb07f52cbd69063a4bd5688e63511b5bf8c8aa"
 dependencies = [
  "pbjson",
  "pbjson-build",
