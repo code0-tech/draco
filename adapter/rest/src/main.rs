@@ -1,5 +1,4 @@
 use base::{
-    extract_flow_setting_field,
     runner::{ServerContext, ServerRunner},
     store::FlowIdentifyResult,
     traits::{IdentifiableFlow, LoadConfig, Server as ServerTrait},
@@ -36,11 +35,25 @@ struct RequestRoute {
 
 impl IdentifiableFlow for RequestRoute {
     fn identify(&self, flow: &ValidationFlow) -> bool {
-        let url = extract_flow_setting_field(&flow.settings, "HTTP_URL", "url");
-        let regex_str = match url.as_deref() {
-            Some(s) => s,
-            None => return false,
+        let regex_str = flow
+            .settings
+            .iter()
+            .find(|s| s.flow_setting_id == "HTTP_URL")
+            .and_then(|s| s.value.as_ref())
+            .and_then(|v| v.kind.as_ref())
+            .and_then(|k| match k {
+                Kind::StringValue(s) => Some(s.as_str()),
+                _ => None,
+            });
+
+        let Some(regex_str) = regex_str else {
+            return false;
         };
+
+        print!(
+            "Comparing regex {} with literal route: {}",
+            regex_str, self.url
+        );
 
         match regex::Regex::new(regex_str) {
             Ok(regex) => regex.is_match(&self.url),
@@ -71,19 +84,32 @@ impl ServerTrait<HttpServerConfig> for HttpServer {
                 move |request: HttpRequest| {
                     let store = Arc::clone(&store);
                     async move {
-                        let pattern = format!("*.*.REST.{}.{:?}", request.host, request.method);
-                        let route = RequestRoute {
-                            url: request.path.clone(),
-                        };
+                        //Get slug => host/slug/real_path
 
-                        match store.get_possible_flow_match(pattern, route).await {
-                            FlowIdentifyResult::Single(flow) => {
-                                execute_flow(flow, request, store).await
+                        let splits: Vec<_> = request.path.split("/").collect();
+                        let first = splits.first();
+
+                        if let Some(slug) = first {
+                            let pattern = format!("REST.{}.*", slug);
+                            let route = RequestRoute {
+                                url: request.path.clone(),
+                            };
+
+                            match store.get_possible_flow_match(pattern, route).await {
+                                FlowIdentifyResult::Single(flow) => {
+                                    print!("Found flow: {}", flow.flow_id);
+                                    execute_flow(flow, request, store).await
+                                }
+                                _ => Some(HttpResponse::internal_server_error(
+                                    format!("No flow found for path: {}", request.path),
+                                    HashMap::new(),
+                                )),
                             }
-                            _ => Some(HttpResponse::internal_server_error(
+                        } else {
+                            Some(HttpResponse::internal_server_error(
                                 format!("No flow found for path: {}", request.path),
                                 HashMap::new(),
-                            )),
+                            ))
                         }
                     }
                 }
