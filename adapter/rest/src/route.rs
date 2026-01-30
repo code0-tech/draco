@@ -44,7 +44,7 @@ impl IdentifiableFlow for RequestRoute {
             .iter()
             .find(|s| s.flow_setting_id == "HTTP_URL");
 
-        log::debug!("Extacted: {:?} as HTTP_URL", &regex_str_v);
+        log::debug!("Extracted: {:?} as HTTP_URL", &regex_str_v);
 
         let regex_str = regex_str_v
             .and_then(|s| s.value.as_ref())
