@@ -139,7 +139,7 @@ impl<C: LoadConfig> ServerRunner<C> {
                        res?;
                    }
 
-                   // Ctrl+C 
+                   // Ctrl+C
                    _ = signal::ctrl_c() => {
                        log::info!("Ctrl+C/Exit signal received, shutting down adapter");
                        server.shutdown(&context).await?;
