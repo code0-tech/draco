@@ -4,11 +4,14 @@ use base::{
     traits::Server as ServerTrait,
 };
 use http_body_util::{BodyExt, Full};
-use hyper::{header::{HeaderName, HeaderValue}, server::conn::http1};
 use hyper::{Request, Response};
 use hyper::{
     StatusCode,
     body::{Bytes, Incoming},
+};
+use hyper::{
+    header::{HeaderName, HeaderValue},
+    server::conn::http1,
 };
 use hyper_util::rt::TokioIo;
 use std::collections::HashMap;
@@ -17,8 +20,8 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tonic::async_trait;
-use tucana::shared::value::Kind;
 use tucana::shared::value::Kind::StructValue;
+use tucana::shared::{ListValue, value::Kind};
 use tucana::shared::{Struct, ValidationFlow, Value};
 
 mod config;
@@ -50,8 +53,6 @@ fn json_error(status: StatusCode, msg: &str) -> Response<Full<Bytes>> {
         .body(Full::new(Bytes::from(body)))
         .unwrap()
 }
-
-
 
 fn build_response(
     status: StatusCode,
@@ -86,7 +87,6 @@ fn build_response(
     builder.body(Full::new(Bytes::from(body))).unwrap()
 }
 
-
 async fn execute_flow_to_hyper_response(
     flow: ValidationFlow,
     body: Vec<u8>,
@@ -99,6 +99,7 @@ async fn execute_flow_to_hyper_response(
 
     match store.validate_and_execute_flow(flow, value).await {
         Some(result) => {
+            log::debug!("Recieved Result: {:?}", result);
             let Value {
                 kind: Some(StructValue(Struct { fields })),
             } = result
@@ -131,8 +132,8 @@ async fn execute_flow_to_hyper_response(
             // headers struct
             let Value {
                 kind:
-                    Some(StructValue(Struct {
-                        fields: header_fields,
+                    Some(Kind::ListValue(ListValue {
+                        values: header_fields,
                     })),
             } = headers_val
             else {
@@ -144,9 +145,46 @@ async fn execute_flow_to_hyper_response(
 
             let http_headers: HashMap<String, String> = header_fields
                 .iter()
-                .filter_map(|(k, v)| match &v.kind {
-                    Some(Kind::StringValue(s)) if !s.is_empty() => Some((k.clone(), s.clone())),
-                    _ => None,
+                .filter_map(|x| {
+                    if let Value {
+                        kind: Some(StructValue(Struct { fields: f })),
+                    } = x
+                    {
+                        return Some(f);
+                    } else {
+                        return None;
+                    }
+                })
+                .filter_map(|f| {
+                    let key = match f.get("key") {
+                        Some(value) => {
+                            if let Value {
+                                kind: Some(Kind::StringValue(x)),
+                            } = value
+                            {
+                                x
+                            } else {
+                                return None;
+                            }
+                        }
+                        None => return None,
+                    };
+                    let value = match f.get("value") {
+                        Some(value) => {
+                            if let Value {
+                                kind: Some(Kind::StringValue(x)),
+                            } = value
+                            {
+                                x
+                            } else {
+                                return None;
+                            }
+                        }
+                        None => return None,
+                    };
+
+
+                    return Some((key.clone(), value.clone()));
                 })
                 .collect();
 
@@ -167,7 +205,10 @@ async fn execute_flow_to_hyper_response(
                 StatusCode::from_u16(code as u16).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
             build_response(status, http_headers, json)
         }
-        None => json_error(StatusCode::INTERNAL_SERVER_ERROR, "Flow execution failed"),
+        None => {
+            log::error!("flow execution failed");
+            return json_error(StatusCode::INTERNAL_SERVER_ERROR, "Flow execution failed");
+        }
     }
 }
 
