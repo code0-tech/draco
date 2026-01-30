@@ -29,7 +29,10 @@ mod route;
 
 #[tokio::main]
 async fn main() {
-    let server = HttpServer { addr: None };
+    let server = HttpServer {
+        shutdown_tx: None,
+        addr: None,
+    };
     let runner = match ServerRunner::new(server).await {
         Ok(runner) => runner,
         Err(err) => panic!("Failed to create server runner: {:?}", err),
@@ -42,6 +45,7 @@ async fn main() {
 }
 
 struct HttpServer {
+    shutdown_tx: Option<tokio::sync::broadcast::Sender<()>>,
     addr: Option<SocketAddr>,
 }
 
@@ -265,6 +269,10 @@ pub async fn handle_request(
 impl ServerTrait<config::HttpServerConfig> for HttpServer {
     async fn init(&mut self, ctx: &ServerContext<config::HttpServerConfig>) -> anyhow::Result<()> {
         log::info!("Initializing http server");
+
+        let (shutdown_tx, _) = tokio::sync::broadcast::channel(1);
+        self.shutdown_tx = Some(shutdown_tx);
+
         let bind = format!("{}:{}", ctx.server_config.host, ctx.server_config.port);
 
         self.addr = Some(
@@ -277,49 +285,72 @@ impl ServerTrait<config::HttpServerConfig> for HttpServer {
     }
 
     async fn run(&mut self, ctx: &ServerContext<config::HttpServerConfig>) -> anyhow::Result<()> {
-        let addr = match self.addr {
-            Some(addr) => addr,
-            None => panic!("cannot start tcp listener with empty address"),
-        };
+        let addr = self
+            .addr
+            .expect("cannot start tcp listener with empty address");
 
-        let listener = match TcpListener::bind(addr).await {
-            Ok(listener) => listener,
-            Err(err) => {
-                panic!("failed to register tcp listener on address: {:?}", err);
-            }
-        };
+        let listener = TcpListener::bind(addr)
+            .await
+            .map_err(|e| anyhow::anyhow!("failed to bind {addr}: {e}"))?;
+
+        // Create a receiver for this run loop
+        let shutdown_tx = self
+            .shutdown_tx
+            .as_ref()
+            .expect("shutdown_tx not initialized; init() must run first")
+            .clone();
+        let mut shutdown_rx = shutdown_tx.subscribe();
 
         loop {
-            let (stream, _) = match listener.accept().await {
-                Ok(res) => res,
-                Err(e) => {
-                    panic!("listener failed to accept requests: {:?}", e);
+            let (stream, _) = tokio::select! {
+                _ = shutdown_rx.recv() => {
+                    log::info!("HTTP server: shutdown received, stopping accept loop");
+                    break;
+                }
+                res = listener.accept() => {
+                    res.map_err(|e| anyhow::anyhow!("accept failed: {e}"))?
                 }
             };
 
             let io = TokioIo::new(stream);
-
             let store = Arc::clone(&ctx.adapter_store);
 
-            tokio::task::spawn(async move {
-                let store = Arc::clone(&store);
+            let mut conn_shutdown_rx = shutdown_tx.subscribe();
+
+            tokio::spawn(async move {
                 let svc = hyper::service::service_fn(move |req| {
                     let store = Arc::clone(&store);
                     async move { handle_request(req, store).await }
                 });
 
-                if let Err(err) = http1::Builder::new().serve_connection(io, svc).await {
-                    log::error!("Error serving connection: {:?}", err);
+                let conn = http1::Builder::new().serve_connection(io, svc);
+
+                tokio::pin!(conn);
+
+                tokio::select! {
+                    res = conn.as_mut() => {
+                        if let Err(err) = res {
+                            log::error!("Error serving connection: {:?}", err);
+                        }
+                    }
+                    _ = conn_shutdown_rx.recv() => {
+                        conn.as_mut().graceful_shutdown();
+                    }
                 }
             });
         }
-    }
 
+        Ok(())
+    }
     async fn shutdown(
         &mut self,
         _ctx: &ServerContext<config::HttpServerConfig>,
     ) -> anyhow::Result<()> {
-        todo!("Implement shutdown!");
+        if let Some(ref tx) = self.shutdown_tx {
+            log::info!("Recieved a shutdown signal for Adapter Server");
+            let _ = tx.send(());
+        }
+
         Ok(())
     }
 }
