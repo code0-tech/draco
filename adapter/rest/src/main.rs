@@ -280,7 +280,7 @@ impl ServerTrait<config::HttpServerConfig> for HttpServer {
                 .map_err(|e| anyhow::anyhow!("Invalid bind address '{}': {}", bind, e))?,
         );
 
-        log::debug!("Initizalized with Address: {:?}", self.addr);
+        log::debug!("Initialized with Address: {:?}", self.addr);
         Ok(())
     }
 
