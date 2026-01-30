@@ -45,19 +45,19 @@ fn extract_flow_setting_field(flow: &ValidationFlow, name: &str) -> Option<Strin
 
 impl IdentifiableFlow for Time {
     fn identify(&self, flow: &tucana::shared::ValidationFlow) -> bool {
-        let Some(minute) = extract_flow_setting_field(&flow, "CRON_MINUTE") else {
+        let Some(minute) = extract_flow_setting_field(flow, "CRON_MINUTE") else {
             return false;
         };
-        let Some(hour) = extract_flow_setting_field(&flow, "CRON_HOUR") else {
+        let Some(hour) = extract_flow_setting_field(flow, "CRON_HOUR") else {
             return false;
         };
-        let Some(dom) = extract_flow_setting_field(&flow, "CRON_DAY_OF_MONTH") else {
+        let Some(dom) = extract_flow_setting_field(flow, "CRON_DAY_OF_MONTH") else {
             return false;
         };
-        let Some(month) = extract_flow_setting_field(&flow, "CRON_MONTH") else {
+        let Some(month) = extract_flow_setting_field(flow, "CRON_MONTH") else {
             return false;
         };
-        let Some(dow) = extract_flow_setting_field(&flow, "CRON_DAY_OF_WEEK") else {
+        let Some(dow) = extract_flow_setting_field(flow, "CRON_DAY_OF_WEEK") else {
             return false;
         };
 
@@ -124,4 +124,3 @@ impl Server<CronConfig> for Cron {
         Ok(())
     }
 }
-
