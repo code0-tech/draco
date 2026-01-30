@@ -113,7 +113,7 @@ async fn execute_flow_to_hyper_response(
 
     match store.validate_and_execute_flow(flow, value).await {
         Some(result) => {
-            log::debug!("Recieved Result: {:?}", result);
+            log::debug!("Received Result: {:?}", result);
             let Value {
                 kind: Some(StructValue(Struct { fields })),
             } = result
