@@ -1,5 +1,5 @@
 [workspace]
-members = ["adapter/rest", "crates/base"]
+members = [ "adapter/cron","adapter/rest", "crates/base"]
 resolver = "3"
 
 [workspace.package]
@@ -22,6 +22,8 @@ anyhow = "1.0.98"
 prost = "0.14.0"
 tonic-health = "0.14.0"
 futures-lite = "2.6.1"
+chrono = "0.4.42"
+cron = "0.15.0"
 
 [workspace.dependencies.base]
 path = "../draco/crates/base"

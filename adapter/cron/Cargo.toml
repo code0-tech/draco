@@ -1,0 +1,14 @@
+[package]
+name = "cron"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tokio = {workspace = true}
+chrono = {workspace = true}
+cron = {workspace = true}
+base = {workspace = true}
+tucana = {workspace = true}
+async-trait =  {workspace = true}
+log = { workspace = true }
+anyhow = {workspace = true}
