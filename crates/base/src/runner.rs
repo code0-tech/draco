@@ -5,7 +5,7 @@ use crate::{
 };
 use code0_flow::flow_service::FlowUpdateService;
 use std::sync::Arc;
-use tokio::signal;
+use tokio::signal::{self, unix::SignalKind, unix::signal};
 use tonic::transport::Server;
 use tonic_health::pb::health_server::HealthServer;
 
@@ -92,10 +92,15 @@ impl<C: LoadConfig> ServerRunner<C> {
             mut server,
             context,
         } = self;
-
         // Init the adapter server (e.g. create underlying HTTP server)
         server.init(&context).await?;
         log::info!("Draco successfully initialized.");
+
+        let sigterm = async {
+            let mut term =
+                signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
+            term.recv().await;
+        };
 
         match health_task {
             Some(mut ht) => {
@@ -113,28 +118,36 @@ impl<C: LoadConfig> ServerRunner<C> {
                         server.shutdown(&context).await?;
                     }
 
-                    // Ctrl+C / SIGINT
+                    // Ctrl+C
                     _ = signal::ctrl_c() => {
                         log::info!("Ctrl+C/Exit signal received, shutting down adapter");
                         server.shutdown(&context).await?;
                         ht.abort();
                     }
+                    _ = sigterm => {
+                        log::info!("SIGTERM received, shutting down adapter");
+                        server.shutdown(&context).await?;
+                        ht.abort();
+                    }
                 }
             }
-
             None => {
                 tokio::select! {
-                    // Adapter server loop ends on its own
-                    res = server.run(&context) => {
-                        log::warn!("Adapter server finished");
-                        res?;
-                    }
+                   // Adapter server loop ends on its own
+                   res = server.run(&context) => {
+                       log::warn!("Adapter server finished");
+                       res?;
+                   }
 
-                    // Ctrl+C / SIGINT
-                    _ = signal::ctrl_c() => {
-                        log::info!("Ctrl+C/Exit signal received, shutting down adapter");
-                        server.shutdown(&context).await?;
-                    }
+                   // Ctrl+C 
+                   _ = signal::ctrl_c() => {
+                       log::info!("Ctrl+C/Exit signal received, shutting down adapter");
+                       server.shutdown(&context).await?;
+                   }
+                   _ = sigterm => {
+                       log::info!("SIGTERM received, shutting down adapter");
+                       server.shutdown(&context).await?;
+                   }
                 }
             }
         }
