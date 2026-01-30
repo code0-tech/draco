@@ -62,8 +62,24 @@ impl IdentifiableFlow for Time {
         };
 
         let expression = format!("* {} {} {} {} {}", minute, hour, dom, month, dow);
-        let schedule = Schedule::from_str(expression.as_str()).unwrap();
-        let next = schedule.upcoming(Utc).next().unwrap();
+        let schedule = match Schedule::from_str(expression.as_str()) {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!(
+                    "Could not create schedule from expression ({}). Reason: {:?}",
+                    expression,
+                    e
+                );
+                return false;
+            }
+        };
+        let next = match schedule.upcoming(Utc).next() {
+            Some(n) => n,
+            None => {
+                log::error!("Could not find any upcomming schedules");
+                return false;
+            }
+        };
 
         self.now.year() == next.year()
             && self.now.month() == next.month()
@@ -87,12 +103,12 @@ impl Server<CronConfig> for Cron {
 
         loop {
             let now = Utc::now();
-            log::info!("Schedlued: {:?}", now);
+            log::info!("Scheduled: {:?}", now);
             if let Some(next) = schedule.upcoming(Utc).take(1).next() {
                 let until_next = next - now;
                 tokio::time::sleep(until_next.to_std()?).await;
 
-                let time = Time { now };
+                let time = Time { now: next };
                 match ctx
                     .adapter_store
                     .get_possible_flow_match(pattern.to_string(), time)
