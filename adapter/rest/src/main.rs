@@ -136,7 +136,7 @@ async fn execute_flow_to_hyper_response(
             else {
                 return json_error(
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    "headers was not a struct",
+                    "headers was not a list of header entries",
                 );
             };
 
