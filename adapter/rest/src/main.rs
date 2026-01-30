@@ -347,7 +347,7 @@ impl ServerTrait<config::HttpServerConfig> for HttpServer {
         _ctx: &ServerContext<config::HttpServerConfig>,
     ) -> anyhow::Result<()> {
         if let Some(ref tx) = self.shutdown_tx {
-            log::info!("Recieved a shutdown signal for Adapter Server");
+            log::info!("Received a shutdown signal for Adapter Server");
             let _ = tx.send(());
         }
 
