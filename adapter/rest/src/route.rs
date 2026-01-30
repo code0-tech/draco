@@ -68,7 +68,7 @@ impl IdentifiableFlow for RequestRoute {
         // Check if the request is matching
         match regex::Regex::new(regex_str) {
             Ok(regex) => {
-                log::debug!("found a match for {}", regex_str);
+                log::debug!("Successfully compiled regex: {}", regex_str);
                 regex.is_match(&self.url)
             }
             Err(err) => {
