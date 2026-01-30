@@ -5,7 +5,7 @@ use crate::{
 };
 use code0_flow::flow_service::FlowUpdateService;
 use std::sync::Arc;
-use tokio::signal::{self, unix::SignalKind, unix::signal};
+use tokio::signal::{self};
 use tonic::transport::Server;
 use tonic_health::pb::health_server::HealthServer;
 
@@ -96,11 +96,17 @@ impl<C: LoadConfig> ServerRunner<C> {
         server.init(&context).await?;
         log::info!("Draco successfully initialized.");
 
+        #[cfg(unix)]
         let sigterm = async {
+            use tokio::signal::unix::{SignalKind, signal};
+
             let mut term =
                 signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
             term.recv().await;
         };
+
+        #[cfg(not(unix))]
+        let sigterm = std::future::pending::<()>();
 
         match health_task {
             Some(mut ht) => {
