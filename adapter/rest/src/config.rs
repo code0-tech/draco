@@ -1,7 +1,6 @@
 use base::traits::LoadConfig;
 use code0_flow::flow_config::env_with_default;
 
-
 #[derive(Clone)]
 pub struct HttpServerConfig {
     pub port: u16,

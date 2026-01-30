@@ -92,10 +92,7 @@ async fn execute_flow_to_hyper_response(
     body: Vec<u8>,
     store: Arc<base::store::AdapterStore>,
 ) -> Response<Full<Bytes>> {
-    let value: Option<Value> = match prost::Message::decode(body.as_slice()) {
-        Ok(v) => Some(v),
-        Err(_) => None,
-    };
+    let value: Option<Value> = prost::Message::decode(body.as_slice()).ok();
 
     match store.validate_and_execute_flow(flow, value).await {
         Some(result) => {
@@ -150,9 +147,9 @@ async fn execute_flow_to_hyper_response(
                         kind: Some(StructValue(Struct { fields: f })),
                     } = x
                     {
-                        return Some(f);
+                        Some(f)
                     } else {
-                        return None;
+                        None
                     }
                 })
                 .filter_map(|f| {
@@ -183,8 +180,7 @@ async fn execute_flow_to_hyper_response(
                         None => return None,
                     };
 
-
-                    return Some((key.clone(), value.clone()));
+                    Some((key.clone(), value.clone()))
                 })
                 .collect();
 
@@ -207,7 +203,7 @@ async fn execute_flow_to_hyper_response(
         }
         None => {
             log::error!("flow execution failed");
-            return json_error(StatusCode::INTERNAL_SERVER_ERROR, "Flow execution failed");
+            json_error(StatusCode::INTERNAL_SERVER_ERROR, "Flow execution failed")
         }
     }
 }
