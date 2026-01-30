@@ -92,7 +92,20 @@ async fn execute_flow_to_hyper_response(
     body: Vec<u8>,
     store: Arc<base::store::AdapterStore>,
 ) -> Response<Full<Bytes>> {
-    let value: Option<Value> = prost::Message::decode(body.as_slice()).ok();
+    let value: Option<Value> = if body.is_empty() {
+        None
+    } else {
+        match prost::Message::decode(body.as_slice()) {
+            Ok(v) => Some(v),
+            Err(e) => {
+                log::warn!("Failed to decode request body as protobuf Value: {}", e);
+                return json_error(
+                    StatusCode::BAD_REQUEST,
+                    "Failed to decode request body as protobuf Value",
+                );
+            }
+        }
+    };
 
     match store.validate_and_execute_flow(flow, value).await {
         Some(result) => {
