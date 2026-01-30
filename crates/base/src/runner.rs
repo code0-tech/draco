@@ -5,7 +5,7 @@ use crate::{
 };
 use code0_flow::flow_service::FlowUpdateService;
 use std::sync::Arc;
-use tokio::signal::{self};
+use tokio::signal;
 use tonic::transport::Server;
 use tonic_health::pb::health_server::HealthServer;
 
