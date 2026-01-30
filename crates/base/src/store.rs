@@ -136,7 +136,7 @@ impl AdapterStore {
         let bytes = execution_flow.encode_to_vec();
         let topic = format!("execution.{}", uuid);
         log::info!(
-            "Requesting the exectition of the flow: {} with an execution id {}",
+            "Requesting execution of flow {} with execution id {}",
             flow_id,
             uuid
         );
