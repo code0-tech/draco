@@ -131,9 +131,15 @@ impl AdapterStore {
         }
 
         let uuid = uuid::Uuid::new_v4().to_string();
+        let flow_id = flow.flow_id;
         let execution_flow: ExecutionFlow = Self::convert_validation_flow(flow, input_value);
         let bytes = execution_flow.encode_to_vec();
         let topic = format!("execution.{}", uuid);
+        log::info!(
+            "Requesting execution of flow {} with execution id {}",
+            flow_id,
+            uuid
+        );
         let result = self.client.request(topic, bytes.into()).await;
 
         match result {

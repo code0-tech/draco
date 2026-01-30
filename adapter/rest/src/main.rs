@@ -1,24 +1,43 @@
 use base::{
     runner::{ServerContext, ServerRunner},
     store::FlowIdentifyResult,
-    traits::{IdentifiableFlow, LoadConfig, Server as ServerTrait},
+    traits::Server as ServerTrait,
 };
-use code0_flow::flow_config::env_with_default;
-use http::{request::HttpRequest, response::HttpResponse, server::Server};
+use http_body_util::{BodyExt, Full};
+use hyper::{Request, Response};
+use hyper::{
+    StatusCode,
+    body::{Bytes, Incoming},
+};
+use hyper::{
+    header::{HeaderName, HeaderValue},
+    server::conn::http1,
+};
+use hyper_util::rt::TokioIo;
 use std::collections::HashMap;
+use std::convert::Infallible;
+use std::net::SocketAddr;
 use std::sync::Arc;
+use tokio::net::TcpListener;
 use tonic::async_trait;
-use tucana::shared::value::Kind;
 use tucana::shared::value::Kind::StructValue;
+use tucana::shared::{ListValue, value::Kind};
 use tucana::shared::{Struct, ValidationFlow, Value};
+
+mod config;
+mod route;
 
 #[tokio::main]
 async fn main() {
-    let server = HttpServer { http_server: None };
+    let server = HttpServer {
+        shutdown_tx: None,
+        addr: None,
+    };
     let runner = match ServerRunner::new(server).await {
         Ok(runner) => runner,
         Err(err) => panic!("Failed to create server runner: {:?}", err),
     };
+    log::info!("Successfully created runner for http service");
     match runner.serve().await {
         Ok(_) => (),
         Err(err) => panic!("Failed to start server runner: {:?}", err),
@@ -26,182 +45,312 @@ async fn main() {
 }
 
 struct HttpServer {
-    http_server: Option<Server>,
+    shutdown_tx: Option<tokio::sync::broadcast::Sender<()>>,
+    addr: Option<SocketAddr>,
 }
 
-struct RequestRoute {
-    url: String,
+fn json_error(status: StatusCode, msg: &str) -> Response<Full<Bytes>> {
+    let body = format!(r#"{{"error": "{}"}}"#, msg);
+    Response::builder()
+        .status(status)
+        .header("content-type", "application/json")
+        .body(Full::new(Bytes::from(body)))
+        .unwrap()
 }
 
-impl IdentifiableFlow for RequestRoute {
-    fn identify(&self, flow: &ValidationFlow) -> bool {
-        let regex_str = flow
-            .settings
-            .iter()
-            .find(|s| s.flow_setting_id == "HTTP_URL")
-            .and_then(|s| s.value.as_ref())
-            .and_then(|v| v.kind.as_ref())
-            .and_then(|k| match k {
-                Kind::StringValue(s) => Some(s.as_str()),
-                _ => None,
-            });
+fn build_response(
+    status: StatusCode,
+    headers: HashMap<String, String>,
+    body: Vec<u8>,
+) -> Response<Full<Bytes>> {
+    let mut builder = Response::builder().status(status);
 
-        let Some(regex_str) = regex_str else {
-            return false;
-        };
+    {
+        let h = builder.headers_mut().unwrap();
+        for (k, v) in headers {
+            let name = match HeaderName::from_bytes(k.as_bytes()) {
+                Ok(n) => n,
+                Err(_) => {
+                    log::warn!("Dropping invalid header name: {}", k);
+                    continue;
+                }
+            };
 
-        print!(
-            "Comparing regex {} with literal route: {}",
-            regex_str, self.url
-        );
+            let value = match HeaderValue::from_str(&v) {
+                Ok(v) => v,
+                Err(_) => {
+                    log::warn!("Dropping invalid header value for {}: {:?}", k, v);
+                    continue;
+                }
+            };
 
-        match regex::Regex::new(regex_str) {
-            Ok(regex) => regex.is_match(&self.url),
-            Err(err) => {
-                log::error!("Failed to compile regex: {}", err);
-                false
+            h.insert(name, value);
+        }
+    }
+
+    builder.body(Full::new(Bytes::from(body))).unwrap()
+}
+
+async fn execute_flow_to_hyper_response(
+    flow: ValidationFlow,
+    body: Vec<u8>,
+    store: Arc<base::store::AdapterStore>,
+) -> Response<Full<Bytes>> {
+    let value: Option<Value> = if body.is_empty() {
+        None
+    } else {
+        match prost::Message::decode(body.as_slice()) {
+            Ok(v) => Some(v),
+            Err(e) => {
+                log::warn!("Failed to decode request body as protobuf Value: {}", e);
+                return json_error(
+                    StatusCode::BAD_REQUEST,
+                    "Failed to decode request body as protobuf Value",
+                );
             }
         }
-    }
-}
+    };
 
-#[async_trait]
-impl ServerTrait<HttpServerConfig> for HttpServer {
-    async fn init(&mut self, ctx: &ServerContext<HttpServerConfig>) -> anyhow::Result<()> {
-        log::info!("Initializing http server");
-        self.http_server = Some(Server::new(
-            ctx.server_config.host.clone(),
-            ctx.server_config.port,
-        ));
-        Ok(())
-    }
-
-    async fn run(&mut self, ctx: &ServerContext<HttpServerConfig>) -> anyhow::Result<()> {
-        if let Some(server) = &mut self.http_server {
-            log::info!("Running http server");
-            server.register_async_closure({
-                let store = Arc::clone(&ctx.adapter_store);
-                move |request: HttpRequest| {
-                    let store = Arc::clone(&store);
-                    async move {
-                        //Get slug => host/slug/real_path
-
-                        let splits: Vec<_> = request.path.split("/").collect();
-                        let first = splits.first();
-
-                        if let Some(slug) = first {
-                            let pattern = format!("REST.{}.*", slug);
-                            let route = RequestRoute {
-                                url: request.path.clone(),
-                            };
-
-                            match store.get_possible_flow_match(pattern, route).await {
-                                FlowIdentifyResult::Single(flow) => {
-                                    print!("Found flow: {}", flow.flow_id);
-                                    execute_flow(flow, request, store).await
-                                }
-                                _ => Some(HttpResponse::internal_server_error(
-                                    format!("No flow found for path: {}", request.path),
-                                    HashMap::new(),
-                                )),
-                            }
-                        } else {
-                            Some(HttpResponse::internal_server_error(
-                                format!("No flow found for path: {}", request.path),
-                                HashMap::new(),
-                            ))
-                        }
-                    }
-                }
-            });
-
-            server.start().await;
-        }
-        Ok(())
-    }
-
-    async fn shutdown(&mut self, _ctx: &ServerContext<HttpServerConfig>) -> anyhow::Result<()> {
-        if let Some(server) = &self.http_server {
-            server.shutdown();
-        }
-        Ok(())
-    }
-}
-
-async fn execute_flow(
-    flow: ValidationFlow,
-    request: HttpRequest,
-    store: Arc<base::store::AdapterStore>,
-) -> Option<HttpResponse> {
-    match store.validate_and_execute_flow(flow, request.body).await {
+    match store.validate_and_execute_flow(flow, value).await {
         Some(result) => {
+            log::debug!("Received Result: {:?}", result);
             let Value {
                 kind: Some(StructValue(Struct { fields })),
             } = result
             else {
-                return None;
+                return json_error(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Flow result was not a struct",
+                );
             };
 
-            let Some(headers) = fields.get("headers") else {
-                return None;
+            let Some(headers_val) = fields.get("headers") else {
+                return json_error(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Flow result missing headers",
+                );
+            };
+            let Some(status_code_val) = fields.get("status_code") else {
+                return json_error(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Flow result missing status_code",
+                );
+            };
+            let Some(payload_val) = fields.get("payload") else {
+                return json_error(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Flow result missing payload",
+                );
             };
 
-            let Some(status_code) = fields.get("status_code") else {
-                return None;
-            };
-
-            let Some(payload) = fields.get("payload") else {
-                return None;
-            };
-
+            // headers struct
             let Value {
                 kind:
-                    Some(StructValue(Struct {
-                        fields: header_fields,
+                    Some(Kind::ListValue(ListValue {
+                        values: header_fields,
                     })),
-            } = headers
+            } = headers_val
             else {
-                return None;
+                return json_error(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "headers was not a list of header entries",
+                );
             };
+
             let http_headers: HashMap<String, String> = header_fields
                 .iter()
-                .filter_map(|(k, v)| {
-                    let value = match &v.kind {
-                        Some(Kind::StringValue(s)) if !s.is_empty() => s.clone(),
-                        _ => return None,
+                .filter_map(|x| {
+                    if let Value {
+                        kind: Some(StructValue(Struct { fields: f })),
+                    } = x
+                    {
+                        Some(f)
+                    } else {
+                        None
+                    }
+                })
+                .filter_map(|f| {
+                    let key = match f.get("key") {
+                        Some(value) => {
+                            if let Value {
+                                kind: Some(Kind::StringValue(x)),
+                            } = value
+                            {
+                                x
+                            } else {
+                                return None;
+                            }
+                        }
+                        None => return None,
+                    };
+                    let value = match f.get("value") {
+                        Some(value) => {
+                            if let Value {
+                                kind: Some(Kind::StringValue(x)),
+                            } = value
+                            {
+                                x
+                            } else {
+                                return None;
+                            }
+                        }
+                        None => return None,
                     };
 
-                    Some((k.clone(), value))
+                    Some((key.clone(), value.clone()))
                 })
                 .collect();
 
-            let json = serde_json::to_vec_pretty(&payload).unwrap_or_else(|err| {
-                format!(r#"{{"error": "Serialization failed: {}"}}"#, err).into_bytes()
+            // status_code number
+            let Some(Kind::NumberValue(code)) = status_code_val.kind else {
+                return json_error(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "status_code was not a number",
+                );
+            };
+
+            // payload -> json bytes
+            let json = serde_json::to_vec_pretty(payload_val).unwrap_or_else(|err| {
+                format!(r#"{{"error":"Serialization failed: {}"}}"#, err).into_bytes()
             });
 
-            let Some(Kind::NumberValue(code)) = status_code.kind else {
-                return None;
-            };
-            Some(HttpResponse::new(code as u16, http_headers.clone(), json))
+            let status =
+                StatusCode::from_u16(code as u16).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+            build_response(status, http_headers, json)
         }
-        None => Some(HttpResponse::internal_server_error(
-            "Flow execution failed".to_string(),
-            HashMap::new(),
-        )),
+        None => {
+            log::error!("flow execution failed");
+            json_error(StatusCode::INTERNAL_SERVER_ERROR, "Flow execution failed")
+        }
     }
 }
 
-#[derive(Clone)]
-struct HttpServerConfig {
-    port: u16,
-    host: String,
+pub async fn handle_request(
+    req: Request<Incoming>,
+    store: Arc<base::store::AdapterStore>,
+) -> Result<Response<Full<Bytes>>, Infallible> {
+    let method = req.method().clone();
+    let path = req.uri().path().to_string();
+
+    // Read full body
+    let body_bytes = match BodyExt::collect(req.into_body()).await {
+        Ok(collected) => collected.to_bytes().to_vec(),
+        Err(err) => {
+            log::error!("Failed to read request body: {}", err);
+            return Ok(json_error(
+                StatusCode::BAD_REQUEST,
+                "Failed to read request body",
+            ));
+        }
+    };
+
+    // slug matching
+    let Some(slug) = route::extract_slug_from_path(&path) else {
+        return Ok(json_error(StatusCode::BAD_REQUEST, "Missing slug in path"));
+    };
+
+    let pattern = format!("REST.{}.*", slug);
+    let route = route::RequestRoute {
+        url: path.clone(),
+        method,
+    };
+
+    let resp = match store.get_possible_flow_match(pattern, route).await {
+        FlowIdentifyResult::Single(flow) => {
+            execute_flow_to_hyper_response(flow, body_bytes, store).await
+        }
+        _ => json_error(StatusCode::NOT_FOUND, "No flow found for path"),
+    };
+
+    Ok(resp)
 }
 
-impl LoadConfig for HttpServerConfig {
-    fn load() -> Self {
-        Self {
-            port: env_with_default("HTTP_SERVER_PORT", 8082),
-            host: env_with_default("HTTP_SERVER_HOST", String::from("0.0.0.0")),
+#[async_trait]
+impl ServerTrait<config::HttpServerConfig> for HttpServer {
+    async fn init(&mut self, ctx: &ServerContext<config::HttpServerConfig>) -> anyhow::Result<()> {
+        log::info!("Initializing http server");
+
+        let (shutdown_tx, _) = tokio::sync::broadcast::channel(1);
+        self.shutdown_tx = Some(shutdown_tx);
+
+        let bind = format!("{}:{}", ctx.server_config.host, ctx.server_config.port);
+
+        self.addr = Some(
+            bind.parse::<SocketAddr>()
+                .map_err(|e| anyhow::anyhow!("Invalid bind address '{}': {}", bind, e))?,
+        );
+
+        log::debug!("Initialized with Address: {:?}", self.addr);
+        Ok(())
+    }
+
+    async fn run(&mut self, ctx: &ServerContext<config::HttpServerConfig>) -> anyhow::Result<()> {
+        let addr = self
+            .addr
+            .expect("cannot start tcp listener with empty address");
+
+        let listener = TcpListener::bind(addr)
+            .await
+            .map_err(|e| anyhow::anyhow!("failed to bind {addr}: {e}"))?;
+
+        // Create a receiver for this run loop
+        let shutdown_tx = self
+            .shutdown_tx
+            .as_ref()
+            .expect("shutdown_tx not initialized; init() must run first")
+            .clone();
+        let mut shutdown_rx = shutdown_tx.subscribe();
+
+        loop {
+            let (stream, _) = tokio::select! {
+                _ = shutdown_rx.recv() => {
+                    log::info!("HTTP server: shutdown received, stopping accept loop");
+                    break;
+                }
+                res = listener.accept() => {
+                    res.map_err(|e| anyhow::anyhow!("accept failed: {e}"))?
+                }
+            };
+
+            let io = TokioIo::new(stream);
+            let store = Arc::clone(&ctx.adapter_store);
+
+            let mut conn_shutdown_rx = shutdown_tx.subscribe();
+
+            tokio::spawn(async move {
+                let svc = hyper::service::service_fn(move |req| {
+                    let store = Arc::clone(&store);
+                    async move { handle_request(req, store).await }
+                });
+
+                let conn = http1::Builder::new().serve_connection(io, svc);
+
+                tokio::pin!(conn);
+
+                tokio::select! {
+                    res = conn.as_mut() => {
+                        if let Err(err) = res {
+                            log::error!("Error serving connection: {:?}", err);
+                        }
+                    }
+                    _ = conn_shutdown_rx.recv() => {
+                        conn.as_mut().graceful_shutdown();
+                    }
+                }
+            });
         }
+
+        Ok(())
+    }
+    async fn shutdown(
+        &mut self,
+        _ctx: &ServerContext<config::HttpServerConfig>,
+    ) -> anyhow::Result<()> {
+        if let Some(ref tx) = self.shutdown_tx {
+            log::info!("Received a shutdown signal for Adapter Server");
+            let _ = tx.send(());
+        }
+
+        Ok(())
     }
 }
