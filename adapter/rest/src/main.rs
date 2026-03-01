@@ -72,7 +72,16 @@ fn pb_value_to_json(v: &Value) -> serde_json::Value {
         Some(Kind::NumberValue(n)) => {
             if let Some(num) = Number::from_f64(*n) {
                 J::Number(num)
+            } else if n.is_nan() {
+                J::String("NaN".to_string())
+            } else if n.is_infinite() {
+                if n.is_sign_positive() {
+                    J::String("Infinity".to_string())
+                } else {
+                    J::String("-Infinity".to_string())
+                }
             } else {
+                // Fallback for unexpected cases where from_f64 returns None.
                 J::Null
             }
         }
