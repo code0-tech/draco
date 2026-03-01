@@ -1,6 +1,5 @@
 use crate::traits::IdentifiableFlow;
 use async_nats::jetstream::kv::Config;
-use code0_flow::flow_validator::verify_flow;
 use futures_lite::StreamExt;
 use prost::Message;
 use tucana::shared::{ExecutionFlow, ValidationFlow, Value};
@@ -119,17 +118,7 @@ impl AdapterStore {
         flow: ValidationFlow,
         input_value: Option<Value>,
     ) -> Option<Value> {
-        if let Some(body) = input_value.clone() {
-            let verify_result = verify_flow(flow.clone(), body);
-
-            match verify_result {
-                Ok(()) => {}
-                Err(_err) => {
-                    return None;
-                }
-            };
-        }
-
+        // TODO: Replace body vaidation with triangulus when its ready
         let uuid = uuid::Uuid::new_v4().to_string();
         let flow_id = flow.flow_id;
         let execution_flow: ExecutionFlow = Self::convert_validation_flow(flow, input_value);
