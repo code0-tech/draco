@@ -252,7 +252,11 @@ async fn execute_flow_to_hyper_response(
             // payload -> json bytes
             let json_val = pb_value_to_json(payload_val);
             let json = serde_json::to_vec_pretty(&json_val).unwrap_or_else(|err| {
-                format!(r#"{{"error":"Serialization failed: {:?}"}}"#, err).into_bytes()
+                let fallback = serde_json::json!({
+                    "error": format!("Serialization failed: {}", err),
+                });
+                serde_json::to_vec(&fallback)
+                    .unwrap_or_else(|_| br#"{"error":"Serialization failed"}"#.to_vec())
             });
 
             let status =
