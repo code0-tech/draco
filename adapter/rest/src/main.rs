@@ -227,9 +227,9 @@ async fn execute_flow_to_hyper_response(
                         kind: Some(Kind::StringValue(x)),
                     } = v
                     {
-                        return Some((k.clone(), x.clone()));
+                        Some((k.clone(), x.clone()))
                     } else {
-                        return None;
+                        None
                     }
                 })
                 .collect();
