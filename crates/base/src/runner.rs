@@ -1,4 +1,5 @@
 use crate::{
+    client::DracoRuntimeStatusService,
     config::AdapterConfig,
     store::AdapterStore,
     traits::{LoadConfig, Server as AdapterServer},
@@ -8,6 +9,7 @@ use std::sync::Arc;
 use tokio::signal;
 use tonic::transport::Server;
 use tonic_health::pb::health_server::HealthServer;
+use tucana::shared::{AdapterConfiguration, RuntimeFeature};
 
 /// Context passed to adapter server implementations containing all shared resources
 pub struct ServerContext<C: LoadConfig> {
@@ -23,6 +25,11 @@ pub struct ServerRunner<C: LoadConfig> {
 }
 
 impl<C: LoadConfig> ServerRunner<C> {
+    
+    pub fn get_server_config(&self) -> Arc<C> {
+        self.context.server_config.clone()
+    }
+
     pub async fn new<S: AdapterServer<C>>(server: S) -> anyhow::Result<Self> {
         env_logger::Builder::from_default_env()
             .filter_level(log::LevelFilter::Debug)
@@ -50,11 +57,34 @@ impl<C: LoadConfig> ServerRunner<C> {
         })
     }
 
-    pub async fn serve(self) -> anyhow::Result<()> {
+    pub async fn serve(
+        self,
+        runtime_feature: Vec<RuntimeFeature>,
+        runtime_config: Vec<AdapterConfiguration>,
+    ) -> anyhow::Result<()> {
         let config = self.context.adapter_config.clone();
+        let mut runtime_status_service: Option<DracoRuntimeStatusService> = None;
+
         log::info!("Starting Draco Variant: {}", config.draco_variant);
 
         if !config.is_static() {
+            runtime_status_service = Some(
+                DracoRuntimeStatusService::from_url(
+                    config.aquila_url.clone(),
+                    config.draco_variant.clone(),
+                    runtime_feature,
+                    runtime_config,
+                )
+                .await,
+            );
+
+            if let Some(ser) = &runtime_status_service {
+                ser.update_runtime_status_by_status(
+                    tucana::shared::adapter_runtime_status::Status::NotReady,
+                )
+                .await;
+            };
+
             let definition_service = FlowUpdateService::from_url(
                 config.aquila_url.clone(),
                 config.definition_path.as_str(),
@@ -95,6 +125,13 @@ impl<C: LoadConfig> ServerRunner<C> {
         } = self;
         // Init the adapter server (e.g. create underlying HTTP server)
         server.init(&context).await?;
+
+        if let Some(ser) = &runtime_status_service {
+            ser.update_runtime_status_by_status(
+                tucana::shared::adapter_runtime_status::Status::Running,
+            )
+            .await;
+        };
         log::info!("Draco successfully initialized.");
 
         #[cfg(unix)]
@@ -158,6 +195,12 @@ impl<C: LoadConfig> ServerRunner<C> {
                 }
             }
         }
+        if let Some(ser) = &runtime_status_service {
+            ser.update_runtime_status_by_status(
+                tucana::shared::adapter_runtime_status::Status::Stopped,
+            )
+            .await;
+        };
 
         log::info!("Draco shutdown complete");
         Ok(())

@@ -1,6 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use tonic::transport::Channel;
+use tokio::time::sleep;
+use tonic::transport::{Channel, Endpoint};
 use tucana::{
     aquila::{
         RuntimeStatusUpdateRequest, runtime_status_service_client::RuntimeStatusServiceClient,
@@ -9,15 +10,72 @@ use tucana::{
     shared::{AdapterConfiguration, AdapterRuntimeStatus, RuntimeFeature},
 };
 
-struct DracoRuntimeStatusService {
+pub struct DracoRuntimeStatusService {
     channel: Channel,
     identifier: String,
     features: Vec<RuntimeFeature>,
     configs: Vec<AdapterConfiguration>,
 }
 
+const MAX_BACKOFF: u64 = 2000 * 60;
+const MAX_RETRIES: i8 = 10;
+
+// Will create a channel and retry if its not possible
+pub async fn create_channel_with_retry(channel_name: &str, url: String) -> Channel {
+    let mut backoff = 100;
+    let mut retries = 0;
+
+    loop {
+        let channel = match Endpoint::from_shared(url.clone()) {
+            Ok(c) => {
+                log::debug!("Creating a new endpoint for the: {} Service", channel_name);
+                c.connect_timeout(std::time::Duration::from_secs(2))
+                    .timeout(std::time::Duration::from_secs(10))
+            }
+            Err(err) => {
+                panic!(
+                    "Cannot create Endpoint for Service: `{}`. Reason: {:?}",
+                    channel_name, err
+                );
+            }
+        };
+
+        match channel.connect().await {
+            Ok(ch) => {
+                return ch;
+            }
+            Err(err) => {
+                log::warn!(
+                    "Retry connect to `{}` using url: `{}` failed: {:?}, retrying in {}ms",
+                    channel_name,
+                    url,
+                    err,
+                    backoff
+                );
+                sleep(std::time::Duration::from_millis(backoff)).await;
+
+                backoff = (backoff * 2).min(MAX_BACKOFF);
+                retries += 1;
+
+                if retries >= MAX_RETRIES {
+                    panic!("Reached max retries to url {}", url)
+                }
+            }
+        }
+    }
+}
 impl DracoRuntimeStatusService {
-    fn new(
+    pub async fn from_url(
+        aquila_url: String,
+        identifier: String,
+        features: Vec<RuntimeFeature>,
+        configs: Vec<AdapterConfiguration>,
+    ) -> Self {
+        let channel = create_channel_with_retry("Aquila", aquila_url).await;
+        Self::new(channel, identifier, features, configs)
+    }
+
+    pub fn new(
         channel: Channel,
         identifier: String,
         features: Vec<RuntimeFeature>,
@@ -35,7 +93,7 @@ impl DracoRuntimeStatusService {
         self.features.push(feat);
     }
 
-    async fn update_runtime_status_by_status(
+    pub async fn update_runtime_status_by_status(
         &self,
         status: tucana::shared::adapter_runtime_status::Status,
     ) {
