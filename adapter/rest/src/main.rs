@@ -186,8 +186,8 @@ async fn execute_flow_to_hyper_response(
             // headers struct
             let Value {
                 kind:
-                    Some(Kind::ListValue(ListValue {
-                        values: header_fields,
+                    Some(Kind::StructValue(Struct {
+                        fields: header_fields,
                     })),
             } = headers_val
             else {
@@ -199,45 +199,15 @@ async fn execute_flow_to_hyper_response(
 
             let http_headers: HashMap<String, String> = header_fields
                 .iter()
-                .filter_map(|x| {
+                .filter_map(|(k, v)| {
                     if let Value {
-                        kind: Some(StructValue(Struct { fields: f })),
-                    } = x
+                        kind: Some(Kind::StringValue(x)),
+                    } = v
                     {
-                        Some(f)
+                        return Some((k.clone(), x.clone()));
                     } else {
-                        None
+                        return None;
                     }
-                })
-                .filter_map(|f| {
-                    let key = match f.get("key") {
-                        Some(value) => {
-                            if let Value {
-                                kind: Some(Kind::StringValue(x)),
-                            } = value
-                            {
-                                x
-                            } else {
-                                return None;
-                            }
-                        }
-                        None => return None,
-                    };
-                    let value = match f.get("value") {
-                        Some(value) => {
-                            if let Value {
-                                kind: Some(Kind::StringValue(x)),
-                            } = value
-                            {
-                                x
-                            } else {
-                                return None;
-                            }
-                        }
-                        None => return None,
-                    };
-
-                    Some((key.clone(), value.clone()))
                 })
                 .collect();
 
