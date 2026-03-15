@@ -89,10 +89,6 @@ impl DracoRuntimeStatusService {
         }
     }
 
-    async fn add_config(&mut self, feat: RuntimeFeature) {
-        self.features.push(feat);
-    }
-
     pub async fn update_runtime_status_by_status(
         &self,
         status: tucana::shared::adapter_runtime_status::Status,
