@@ -21,9 +21,9 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tonic::async_trait;
-use tucana::shared::value::Kind::StructValue;
-use tucana::shared::{ListValue, value::Kind};
+use tucana::shared::{AdapterConfiguration, RuntimeFeature, value::Kind};
 use tucana::shared::{Struct, ValidationFlow, Value};
+use tucana::shared::{Translation, value::Kind::StructValue};
 
 mod config;
 mod route;
@@ -39,7 +39,30 @@ async fn main() {
         Err(err) => panic!("Failed to create server runner: {:?}", err),
     };
     log::info!("Successfully created runner for http service");
-    match runner.serve().await {
+
+    let addr = runner.get_server_config().port;
+    let host = runner.get_server_config().host.clone();
+
+    let featues = vec![RuntimeFeature {
+                name: vec![Translation {
+                    code: "en-US".to_string(),
+                    content: "Rest Adapter".to_string(),
+                }],
+                description: vec![Translation {
+                    code: "en-US".to_string(),
+                    content: "A Rest-Adapter is a server that exposes resources through HTTP URLs (endpoints). Clients use methods like GET, POST, PUT, and DELETE to retrieve or modify data, typically exchanged as JSON.".to_string(),
+                }],
+            }];
+
+    let configs = vec![AdapterConfiguration {
+        data: Some(tucana::shared::adapter_configuration::Data::Endpoint(
+            format!(
+                r"{}:{}/${{project_slug}}/${{flow_setting_identifier}}",
+                host, addr
+            ),
+        )),
+    }];
+    match runner.serve(featues, configs).await {
         Ok(_) => (),
         Err(err) => panic!("Failed to start server runner: {:?}", err),
     };
