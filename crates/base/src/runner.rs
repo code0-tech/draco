@@ -25,7 +25,6 @@ pub struct ServerRunner<C: LoadConfig> {
 }
 
 impl<C: LoadConfig> ServerRunner<C> {
-    
     pub fn get_server_config(&self) -> Arc<C> {
         self.context.server_config.clone()
     }
