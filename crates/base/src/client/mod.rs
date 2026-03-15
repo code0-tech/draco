@@ -127,24 +127,4 @@ impl DracoRuntimeStatusService {
             }
         }
     }
-    async fn update_runtime_status(&self, status: AdapterRuntimeStatus) {
-        log::info!("Updating the current Runtime Status!");
-        let mut client = RuntimeStatusServiceClient::new(self.channel.clone());
-
-        let request = RuntimeStatusUpdateRequest {
-            status: Some(Status::AdapterRuntimeStatus(status)),
-        };
-
-        match client.update(request).await {
-            Ok(response) => {
-                log::info!(
-                    "Was the update of the RuntimeStatus accepted by Sagittarius? {}",
-                    response.into_inner().success
-                );
-            }
-            Err(err) => {
-                log::error!("Failed to update RuntimeStatus: {:?}", err);
-            }
-        }
-    }
 }
