@@ -152,6 +152,7 @@ impl AdapterStore {
             starting_node_id: flow.starting_node_id,
             input_value,
             node_functions: flow.node_functions,
+            project_id: flow.project_id,
         }
     }
 
