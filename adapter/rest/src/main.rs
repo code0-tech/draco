@@ -14,7 +14,6 @@ use hyper::{
     server::conn::http1,
 };
 use hyper_util::rt::TokioIo;
-use serde_json::{Map, Number, Value as J};
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::net::SocketAddr;
@@ -80,45 +79,6 @@ fn json_error(status: StatusCode, msg: &str) -> Response<Full<Bytes>> {
         .header("content-type", "application/json")
         .body(Full::new(Bytes::from(body)))
         .unwrap()
-}
-
-fn pb_value_to_json(v: &Value) -> serde_json::Value {
-    match v.kind.as_ref() {
-        None => J::Null,
-
-        Some(Kind::NullValue(_)) => J::Null,
-
-        Some(Kind::BoolValue(b)) => J::Bool(*b),
-
-        Some(Kind::StringValue(s)) => J::String(s.clone()),
-
-        Some(Kind::NumberValue(n)) => {
-            if let Some(num) = Number::from_f64(*n) {
-                J::Number(num)
-            } else if n.is_nan() {
-                J::String("NaN".to_string())
-            } else if n.is_infinite() {
-                if n.is_sign_positive() {
-                    J::String("Infinity".to_string())
-                } else {
-                    J::String("-Infinity".to_string())
-                }
-            } else {
-                // Fallback for unexpected cases where from_f64 returns None.
-                J::Null
-            }
-        }
-
-        Some(Kind::ListValue(lv)) => J::Array(lv.values.iter().map(pb_value_to_json).collect()),
-
-        Some(Kind::StructValue(st)) => {
-            let mut obj = Map::new();
-            for (k, v) in &st.fields {
-                obj.insert(k.clone(), pb_value_to_json(v));
-            }
-            J::Object(obj)
-        }
-    }
 }
 
 fn build_response(
@@ -243,7 +203,7 @@ async fn execute_flow_to_hyper_response(
             };
 
             // payload -> json bytes
-            let json_val = pb_value_to_json(payload_val);
+            let json_val = tucana::shared::helper::value::to_json_value(payload_val.clone());
             let json = serde_json::to_vec_pretty(&json_val).unwrap_or_else(|err| {
                 let fallback = serde_json::json!({
                     "error": format!("Serialization failed: {}", err),
@@ -252,8 +212,18 @@ async fn execute_flow_to_hyper_response(
                     .unwrap_or_else(|_| br#"{"error":"Serialization failed"}"#.to_vec())
             });
 
+            let http_code = match code.number {
+                Some(num) => match num {
+                    tucana::shared::number_value::Number::Integer(int) => int as u16,
+                    tucana::shared::number_value::Number::Float(float) => float as u16,
+                },
+                None => {
+                    return json_error(StatusCode::INTERNAL_SERVER_ERROR, "Flow execution failed");
+                }
+            };
+
             let status =
-                StatusCode::from_u16(code as u16).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+                StatusCode::from_u16(http_code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
             build_response(status, http_headers, json)
         }
         None => {
