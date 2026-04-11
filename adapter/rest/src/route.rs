@@ -15,7 +15,7 @@ impl IdentifiableFlow for RequestRoute {
         let method_str = flow
             .settings
             .iter()
-            .find(|s| s.flow_setting_id == "HTTP_METHOD")
+            .find(|s| s.flow_setting_id == "httpMethod")
             .and_then(|s| s.value.as_ref())
             .and_then(|v| v.kind.as_ref())
             .and_then(|k| match k {
@@ -42,9 +42,9 @@ impl IdentifiableFlow for RequestRoute {
         let regex_str_v = flow
             .settings
             .iter()
-            .find(|s| s.flow_setting_id == "HTTP_URL");
+            .find(|s| s.flow_setting_id == "httpURL");
 
-        log::debug!("Extracted: {:?} as HTTP_URL", &regex_str_v);
+        log::debug!("Extracted: {:?} as httpURL", &regex_str_v);
 
         let regex_str = regex_str_v
             .and_then(|s| s.value.as_ref())
