@@ -42,6 +42,11 @@ pub struct AdapterConfig {
     /// URL of the Aquila server to connect to.
     pub aquila_url: String,
 
+    /// Aquila Token
+    ///
+    /// Token used to authenticate with Aquila.
+    pub aquila_token: String,
+
     /// Definition Path
     ///
     /// Path to the root definition folder.
@@ -73,6 +78,8 @@ impl AdapterConfig {
             "AQUILA_URL",
             String::from("grpc://localhost:50051"),
         );
+        let aquila_token =
+            code0_flow::flow_config::env_with_default("AQUILA_TOKEN", String::from("token"));
 
         let environment =
             code0_flow::flow_config::env_with_default("ENVIRONMENT", Environment::Development);
@@ -94,6 +101,7 @@ impl AdapterConfig {
             grpc_port,
             grpc_host,
             aquila_url,
+            aquila_token,
             definition_path,
             with_health_service,
             draco_variant,

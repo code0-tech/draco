@@ -87,6 +87,7 @@ impl<C: LoadConfig> ServerRunner<C> {
             let definition_service = FlowUpdateService::from_url(
                 config.aquila_url.clone(),
                 config.definition_path.as_str(),
+                config.aquila_token.clone(),
             )
             .await;
             definition_service.send().await;
