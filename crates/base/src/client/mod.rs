@@ -1,7 +1,11 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use code0_flow::flow_service::auth::get_authorization_metadata;
 use tokio::time::sleep;
-use tonic::transport::{Channel, Endpoint};
+use tonic::{
+    Extensions, Request,
+    transport::{Channel, Endpoint},
+};
 use tucana::{
     aquila::{
         RuntimeStatusUpdateRequest, runtime_status_service_client::RuntimeStatusServiceClient,
@@ -15,6 +19,7 @@ pub struct DracoRuntimeStatusService {
     identifier: String,
     features: Vec<RuntimeFeature>,
     configs: Vec<AdapterConfiguration>,
+    aquila_token: String,
 }
 
 const MAX_BACKOFF: u64 = 2000 * 60;
@@ -67,12 +72,13 @@ pub async fn create_channel_with_retry(channel_name: &str, url: String) -> Chann
 impl DracoRuntimeStatusService {
     pub async fn from_url(
         aquila_url: String,
+        aquila_token: String,
         identifier: String,
         features: Vec<RuntimeFeature>,
         configs: Vec<AdapterConfiguration>,
     ) -> Self {
         let channel = create_channel_with_retry("Aquila", aquila_url).await;
-        Self::new(channel, identifier, features, configs)
+        Self::new(channel, identifier, features, configs, aquila_token)
     }
 
     pub fn new(
@@ -80,12 +86,14 @@ impl DracoRuntimeStatusService {
         identifier: String,
         features: Vec<RuntimeFeature>,
         configs: Vec<AdapterConfiguration>,
+        aquila_token: String,
     ) -> Self {
         DracoRuntimeStatusService {
             channel,
             identifier,
             features,
             configs,
+            aquila_token,
         }
     }
 
@@ -105,15 +113,19 @@ impl DracoRuntimeStatusService {
             }
         };
 
-        let request = RuntimeStatusUpdateRequest {
-            status: Some(Status::AdapterRuntimeStatus(AdapterRuntimeStatus {
-                status: status.into(),
-                timestamp: timestamp as i64,
-                identifier: self.identifier.clone(),
-                features: self.features.clone(),
-                configurations: self.configs.clone(),
-            })),
-        };
+        let request = Request::from_parts(
+            get_authorization_metadata(&self.aquila_token),
+            Extensions::new(),
+            RuntimeStatusUpdateRequest {
+                status: Some(Status::AdapterRuntimeStatus(AdapterRuntimeStatus {
+                    status: status.into(),
+                    timestamp: timestamp as i64,
+                    identifier: self.identifier.clone(),
+                    features: self.features.clone(),
+                    configurations: self.configs.clone(),
+                })),
+            },
+        );
 
         match client.update(request).await {
             Ok(response) => {

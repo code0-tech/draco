@@ -70,6 +70,7 @@ impl<C: LoadConfig> ServerRunner<C> {
             runtime_status_service = Some(
                 DracoRuntimeStatusService::from_url(
                     config.aquila_url.clone(),
+                    config.aquila_token.clone(),
                     config.draco_variant.clone(),
                     runtime_feature,
                     runtime_config,
