@@ -78,10 +78,8 @@ impl AdapterConfig {
             "AQUILA_URL",
             String::from("grpc://localhost:50051"),
         );
-        let aquila_token = code0_flow::flow_config::env_with_default(
-            "AQUILA_TOKEN",
-            String::from("token"),
-        );
+        let aquila_token =
+            code0_flow::flow_config::env_with_default("AQUILA_TOKEN", String::from("token"));
 
         let environment =
             code0_flow::flow_config::env_with_default("ENVIRONMENT", Environment::Development);
