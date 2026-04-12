@@ -44,7 +44,7 @@ pub struct AdapterConfig {
 
     /// Aquila Token
     ///
-    /// Token for verifing to Aquila.
+    /// Token used to authenticate with Aquila.
     pub aquila_token: String,
 
     /// Definition Path
