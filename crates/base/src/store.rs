@@ -121,7 +121,8 @@ impl AdapterStore {
         // TODO: Replace body vaidation with triangulus when its ready
         let uuid = uuid::Uuid::new_v4().to_string();
         let flow_id = flow.flow_id;
-        let execution_flow: ExecutionFlow = Self::convert_validation_flow(flow, input_value.clone());
+        let execution_flow: ExecutionFlow =
+            Self::convert_validation_flow(flow, input_value.clone());
         let bytes = execution_flow.encode_to_vec();
         let topic = format!("execution.{}", uuid);
         log::info!(

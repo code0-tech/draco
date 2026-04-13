@@ -75,9 +75,10 @@ pub fn parse_body(
         BodyFormat::Unknown => {
             // If there is no content type
             if content_type.is_none()
-                && let Ok(value) = parse_text_body(body) {
-                    return Ok(value);
-                }
+                && let Ok(value) = parse_text_body(body)
+            {
+                return Ok(value);
+            }
 
             Err(BodyParseError::UnsupportedContentType {
                 observed: content_type.unwrap_or("<missing>").to_string(),

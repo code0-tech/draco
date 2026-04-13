@@ -90,19 +90,19 @@ async fn execute_flow_to_hyper_response(
                     })),
             } = &result
                 && result_fields.contains_key("name")
-                    && result_fields.contains_key("message")
-                    && !result_fields.contains_key("payload")
-                    && !result_fields.contains_key("headers")
-                {
-                    log::debug!("Detected a RuntimeError");
-                    let name = get_string("name", &result);
-                    let message = get_string("message", &result);
+                && result_fields.contains_key("message")
+                && !result_fields.contains_key("payload")
+                && !result_fields.contains_key("headers")
+            {
+                log::debug!("Detected a RuntimeError");
+                let name = get_string("name", &result);
+                let message = get_string("message", &result);
 
-                    return error_to_http_response(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("{}: {}", name.unwrap(), message.unwrap()).as_str(),
-                    );
-                }
+                return error_to_http_response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("{}: {}", name.unwrap(), message.unwrap()).as_str(),
+                );
+            }
 
             value_to_http_response(result)
         }
