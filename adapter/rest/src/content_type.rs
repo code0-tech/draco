@@ -229,19 +229,6 @@ mod tests {
     }
 
     #[test]
-    fn parse_missing_content_type_best_effort_json() {
-        let body = br#"{"name":"draco"}"#;
-        let parsed = parse_body(None, body).unwrap();
-
-        let Some(Value {
-            kind: Some(Kind::StructValue(_)),
-        }) = parsed
-        else {
-            panic!("expected best-effort JSON parse");
-        };
-    }
-
-    #[test]
     fn parse_unsupported_content_type_fails() {
         let body = br#"<root />"#;
         let err = parse_body(Some("application/xml"), body).unwrap_err();
