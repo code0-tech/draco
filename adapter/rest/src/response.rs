@@ -35,19 +35,19 @@ pub fn value_to_http_response(value: Value) -> Response<Full<Bytes>> {
     let Some(headers_val) = fields.get("headers") else {
         return error_to_http_response(
             StatusCode::INTERNAL_SERVER_ERROR,
-            "Flow result missing headers",
+            "Flow result missing the field: headers",
         );
     };
     let Some(status_code_val) = fields.get("http_status_code") else {
         return error_to_http_response(
             StatusCode::INTERNAL_SERVER_ERROR,
-            "Flow result missing status_code",
+            "Flow result missing the field: http_status_code",
         );
     };
     let Some(payload_val) = fields.get("payload") else {
         return error_to_http_response(
             StatusCode::INTERNAL_SERVER_ERROR,
-            "Flow result missing payload",
+            "Flow result missing the field: payload",
         );
     };
 
