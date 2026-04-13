@@ -11,7 +11,6 @@ use hyper::{
     body::{Bytes, Incoming},
 };
 use hyper_util::rt::TokioIo;
-use serde_json::json;
 use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -90,8 +89,7 @@ async fn execute_flow_to_hyper_response(
                         fields: result_fields,
                     })),
             } = &result
-            {
-                if result_fields.contains_key("name")
+                && result_fields.contains_key("name")
                     && result_fields.contains_key("message")
                     && !result_fields.contains_key("payload")
                     && !result_fields.contains_key("headers")
@@ -105,7 +103,6 @@ async fn execute_flow_to_hyper_response(
                         format!("{}: {}", name.unwrap(), message.unwrap()).as_str(),
                     );
                 }
-            }
 
             value_to_http_response(result)
         }
@@ -180,11 +177,8 @@ pub async fn handle_request(
                 header_fields.insert(key, value_str.to_value());
             }
 
-            match request_body_value {
-                Some(v) => {
-                    fields.insert(String::from("payload"), v);
-                }
-                None => {}
+            if let Some(v) = request_body_value {
+                fields.insert(String::from("payload"), v);
             };
 
             fields.insert(
