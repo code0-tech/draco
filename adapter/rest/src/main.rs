@@ -4,27 +4,29 @@ use base::{
     traits::Server as ServerTrait,
 };
 use http_body_util::{BodyExt, Full};
+use hyper::server::conn::http1;
 use hyper::{Request, Response};
 use hyper::{
     StatusCode,
     body::{Bytes, Incoming},
 };
-use hyper::{
-    header::{HeaderName, HeaderValue},
-    server::conn::http1,
-};
 use hyper_util::rt::TokioIo;
-use std::collections::HashMap;
 use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tonic::async_trait;
-use tucana::shared::{AdapterConfiguration, RuntimeFeature, value::Kind};
-use tucana::shared::{Struct, ValidationFlow, Value};
-use tucana::shared::{Translation, value::Kind::StructValue};
+use tucana::shared::{
+    AdapterConfiguration, RuntimeFeature, Struct, Translation, ValidationFlow, Value,
+    helper::{path::get_string, value::ToValue},
+    value::Kind,
+};
+
+use crate::response::{error_to_http_response, value_to_http_response};
 
 mod config;
+mod content_type;
+mod response;
 mod route;
 
 #[tokio::main]
@@ -72,163 +74,41 @@ struct HttpServer {
     addr: Option<SocketAddr>,
 }
 
-fn json_error(status: StatusCode, msg: &str) -> Response<Full<Bytes>> {
-    let body = format!(r#"{{"error": "{}"}}"#, msg);
-    Response::builder()
-        .status(status)
-        .header("content-type", "application/json")
-        .body(Full::new(Bytes::from(body)))
-        .unwrap()
-}
-
-fn build_response(
-    status: StatusCode,
-    headers: HashMap<String, String>,
-    body: Vec<u8>,
-) -> Response<Full<Bytes>> {
-    let mut builder = Response::builder().status(status);
-
-    {
-        let h = builder.headers_mut().unwrap();
-        for (k, v) in headers {
-            let name = match HeaderName::from_bytes(k.as_bytes()) {
-                Ok(n) => n,
-                Err(_) => {
-                    log::warn!("Dropping invalid header name: {}", k);
-                    continue;
-                }
-            };
-
-            let value = match HeaderValue::from_str(&v) {
-                Ok(v) => v,
-                Err(_) => {
-                    log::warn!("Dropping invalid header value for {}: {:?}", k, v);
-                    continue;
-                }
-            };
-
-            h.insert(name, value);
-        }
-    }
-
-    builder.body(Full::new(Bytes::from(body))).unwrap()
-}
-
 async fn execute_flow_to_hyper_response(
     flow: ValidationFlow,
-    body: Vec<u8>,
+    body: Value,
     store: Arc<base::store::AdapterStore>,
 ) -> Response<Full<Bytes>> {
-    let value: Option<Value> = if body.is_empty() {
-        None
-    } else {
-        match prost::Message::decode(body.as_slice()) {
-            Ok(v) => Some(v),
-            Err(e) => {
-                log::warn!("Failed to decode request body as protobuf Value: {}", e);
-                return json_error(
-                    StatusCode::BAD_REQUEST,
-                    "Failed to decode request body as protobuf Value",
-                );
-            }
-        }
-    };
-
-    match store.validate_and_execute_flow(flow, value).await {
+    match store.validate_and_execute_flow(flow, Some(body)).await {
         Some(result) => {
             log::debug!("Received Result: {:?}", result);
-            let Value {
-                kind: Some(StructValue(Struct { fields })),
-            } = result
-            else {
-                return json_error(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Flow result was not a struct",
-                );
-            };
 
-            let Some(headers_val) = fields.get("headers") else {
-                return json_error(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Flow result missing headers",
-                );
-            };
-            let Some(status_code_val) = fields.get("status_code") else {
-                return json_error(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Flow result missing status_code",
-                );
-            };
-            let Some(payload_val) = fields.get("payload") else {
-                return json_error(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Flow result missing payload",
-                );
-            };
-
-            // headers struct
-            let Value {
+            if let Value {
                 kind:
                     Some(Kind::StructValue(Struct {
-                        fields: header_fields,
+                        fields: result_fields,
                     })),
-            } = headers_val
-            else {
-                return json_error(
+            } = &result
+                && result_fields.contains_key("name")
+                && result_fields.contains_key("message")
+                && !result_fields.contains_key("payload")
+                && !result_fields.contains_key("headers")
+            {
+                log::debug!("Detected a RuntimeError");
+                let name = get_string("name", &result);
+                let message = get_string("message", &result);
+
+                return error_to_http_response(
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    "headers was not a list of header entries",
+                    format!("{}: {}", name.unwrap(), message.unwrap()).as_str(),
                 );
-            };
+            }
 
-            let http_headers: HashMap<String, String> = header_fields
-                .iter()
-                .filter_map(|(k, v)| {
-                    if let Value {
-                        kind: Some(Kind::StringValue(x)),
-                    } = v
-                    {
-                        Some((k.clone(), x.clone()))
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-
-            // status_code number
-            let Some(Kind::NumberValue(code)) = status_code_val.kind else {
-                return json_error(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "status_code was not a number",
-                );
-            };
-
-            // payload -> json bytes
-            let json_val = tucana::shared::helper::value::to_json_value(payload_val.clone());
-            let json = serde_json::to_vec_pretty(&json_val).unwrap_or_else(|err| {
-                let fallback = serde_json::json!({
-                    "error": format!("Serialization failed: {}", err),
-                });
-                serde_json::to_vec(&fallback)
-                    .unwrap_or_else(|_| br#"{"error":"Serialization failed"}"#.to_vec())
-            });
-
-            let http_code = match code.number {
-                Some(num) => match num {
-                    tucana::shared::number_value::Number::Integer(int) => int as u16,
-                    tucana::shared::number_value::Number::Float(float) => float as u16,
-                },
-                None => {
-                    return json_error(StatusCode::INTERNAL_SERVER_ERROR, "Flow execution failed");
-                }
-            };
-
-            let status =
-                StatusCode::from_u16(http_code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
-            build_response(status, http_headers, json)
+            value_to_http_response(result)
         }
         None => {
             log::error!("flow execution failed");
-            json_error(StatusCode::INTERNAL_SERVER_ERROR, "Flow execution failed")
+            error_to_http_response(StatusCode::INTERNAL_SERVER_ERROR, "Flow execution failed")
         }
     }
 }
@@ -239,22 +119,41 @@ pub async fn handle_request(
 ) -> Result<Response<Full<Bytes>>, Infallible> {
     let method = req.method().clone();
     let path = req.uri().path().to_string();
+    let headers = req.headers().clone();
 
     // Read full body
     let body_bytes = match BodyExt::collect(req.into_body()).await {
         Ok(collected) => collected.to_bytes().to_vec(),
         Err(err) => {
             log::error!("Failed to read request body: {}", err);
-            return Ok(json_error(
+            return Ok(error_to_http_response(
                 StatusCode::BAD_REQUEST,
                 "Failed to read request body",
             ));
         }
     };
 
+    let request_body_value = match content_type::parse_body_from_headers(&headers, &body_bytes) {
+        Ok(value) => value,
+        Err(err) => {
+            log::warn!("Failed to parse request body: {}", err);
+            let status_code = match err {
+                content_type::BodyParseError::UnsupportedContentType { .. } => {
+                    StatusCode::UNSUPPORTED_MEDIA_TYPE
+                }
+                _ => StatusCode::BAD_REQUEST,
+            };
+
+            return Ok(error_to_http_response(status_code, &err.to_string()));
+        }
+    };
+
     // slug matching
     let Some(slug) = route::extract_slug_from_path(&path) else {
-        return Ok(json_error(StatusCode::BAD_REQUEST, "Missing slug in path"));
+        return Ok(error_to_http_response(
+            StatusCode::BAD_REQUEST,
+            "Missing slug in path",
+        ));
     };
 
     let pattern = format!("REST.{}.*", slug);
@@ -265,9 +164,39 @@ pub async fn handle_request(
 
     let resp = match store.get_possible_flow_match(pattern, route).await {
         FlowIdentifyResult::Single(flow) => {
-            execute_flow_to_hyper_response(flow, body_bytes, store).await
+            let mut header_fields = std::collections::HashMap::new();
+            let mut fields = std::collections::HashMap::new();
+
+            for (name, value) in headers.iter() {
+                let key = name.as_str().to_owned();
+                let value_str = value
+                    .to_str()
+                    .map(str::to_owned)
+                    .unwrap_or_else(|_| String::from_utf8_lossy(value.as_bytes()).into_owned());
+
+                header_fields.insert(key, value_str.to_value());
+            }
+
+            if let Some(v) = request_body_value {
+                fields.insert(String::from("payload"), v);
+            };
+
+            fields.insert(
+                String::from("headers"),
+                Value {
+                    kind: Some(Kind::StructValue(Struct {
+                        fields: header_fields,
+                    })),
+                },
+            );
+
+            let input = Value {
+                kind: Some(Kind::StructValue(Struct { fields })),
+            };
+
+            execute_flow_to_hyper_response(flow, input, store).await
         }
-        _ => json_error(StatusCode::NOT_FOUND, "No flow found for path"),
+        _ => error_to_http_response(StatusCode::NOT_FOUND, "No flow found for path"),
     };
 
     Ok(resp)
