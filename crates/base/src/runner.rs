@@ -5,8 +5,8 @@ use crate::{
     traits::{LoadConfig, Server as AdapterServer},
 };
 use code0_flow::flow_service::FlowUpdateService;
-use std::sync::Arc;
-use tokio::signal;
+use std::{sync::Arc, time::Duration};
+use tokio::{signal, time::sleep};
 use tonic::transport::Server;
 use tonic_health::pb::health_server::HealthServer;
 use tucana::shared::{AdapterConfiguration, RuntimeFeature};
@@ -91,7 +91,22 @@ impl<C: LoadConfig> ServerRunner<C> {
                 config.aquila_token.clone(),
             )
             .await;
-            definition_service.send().await;
+
+            let mut success = false;
+            let mut count = 1;
+            while !success {
+                success = definition_service.send_with_status().await;
+                if success {
+                    break;
+                }
+
+                log::warn!(
+                    "Updating definitions failed, trying again in 2 secs (retry number {})",
+                    count
+                );
+                count += 1;
+                sleep(Duration::from_secs(3)).await;
+            }
         }
 
         let health_task = if config.with_health_service {
