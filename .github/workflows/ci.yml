@@ -1,104 +1,49 @@
-name: Rust CI/CD Pipeline
+name: CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
-    types: [opened, reopened]
 
-env:
-  RUST_BACKTRACE: 1
+permissions:
+  pull-requests: write
 
 jobs:
-  # Job 1: Format Check
-  format:
-    name: Format Check
+  pipeline:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - uses: Taucher2003/GitLab-Pipeline-Action@1.14.4
+        name: Run pipeline
+        id: pipeline
         with:
-          components: rustfmt
+          GL_SERVER_URL: https://gitlab.com
+          GL_PROJECT_ID: '81430101'
+          GL_RUNNER_TOKEN: ${{ secrets.GL_RUNNER_TOKEN }}
+          GL_API_TOKEN: ${{ secrets.GL_API_TOKEN }}
+          SHOW_JOB_LOGS: all
+          OVERRIDE_GITHUB_SHA: ${{ github.event_name == 'push' && github.sha || github.event.pull_request.head.sha }}
+          OVERRIDE_GITHUB_REF_NAME: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.ref }}
+        env:
+          GLPA_C0_GH_REF: ${{ github.ref }}
+          GLPA_C0_GH_REF_NAME: ${{ github.ref_name }}
 
-      - name: Check formatting
-        run: cargo fmt --all -- --check
-
-  # Job 2: Lint Check
-  lint:
-    name: Lint Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - name: Find existing comment
+        uses: peter-evans/find-comment@v4
+        id: find-comment
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         with:
-          components: clippy
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: <!-- glpa_comment:pipeline -->
 
-      - name: Cache cargo registry
-        uses: actions/cache@v5
+      - name: Create or update comment
+        uses: peter-evans/create-or-update-comment@v5
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-lint-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Run clippy
-        run: cargo clippy --all-targets --all-features
-
-  # Job 3: Build
-  build:
-    name: Build
-    needs: [ lint, format ]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo registry
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Build project
-        run: cargo build --verbose --all-features
-
-  test:
-    name: Test
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo registry
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Run Tests
-        run:  cargo test --verbose --all-features
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            <!-- glpa_comment:pipeline -->
+            ${{ steps.pipeline.outputs.SUMMARY_TEXT }}
+          edit-mode: replace
