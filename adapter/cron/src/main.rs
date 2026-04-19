@@ -110,16 +110,13 @@ impl IdentifiableFlow for Time {
             && self.now.hour() == next.hour()
             && self.now.minute() == next.minute();
 
-        match is_match {
-            true => {
-                log::debug!("Flow with id: {} was a match", flow.flow_id);
-                is_match
-            }
-            false => {
-                log::debug!("Flow with id: {} was no match", flow.flow_id);
-                is_match
-            }
+        if is_match {
+            log::debug!("Flow with id: {} was a match", flow.flow_id);
+        } else {
+            log::debug!("Flow with id: {} was no match", flow.flow_id);
         }
+
+        is_match
     }
 }
 
