@@ -57,6 +57,7 @@ fn extract_flow_setting_field(flow: &ValidationFlow, name: &str) -> Option<Strin
 
 impl IdentifiableFlow for Time {
     fn identify(&self, flow: &tucana::shared::ValidationFlow) -> bool {
+        log::debug!("Trying to identify flow with flow id: {}", flow.flow_id);
         let Some(minute) = extract_flow_setting_field(flow, "cronMinute") else {
             return false;
         };
@@ -72,6 +73,16 @@ impl IdentifiableFlow for Time {
         let Some(dow) = extract_flow_setting_field(flow, "cronDayOfWeek") else {
             return false;
         };
+
+        log::debug!(
+            "flow with id: {} has the following cron configuration {} {} {} {} {}",
+            flow.flow_id,
+            minute,
+            hour,
+            dom,
+            month,
+            dow
+        );
 
         let expression = format!("* {} {} {} {} {}", minute, hour, dom, month, dow);
         let schedule = match Schedule::from_str(expression.as_str()) {
@@ -93,11 +104,22 @@ impl IdentifiableFlow for Time {
             }
         };
 
-        self.now.year() == next.year()
+        let is_match = self.now.year() == next.year()
             && self.now.month() == next.month()
             && self.now.day() == next.day()
             && self.now.hour() == next.hour()
-            && self.now.minute() == next.minute()
+            && self.now.minute() == next.minute();
+
+        match is_match {
+            true => {
+                log::debug!("Flow with id: {} was a match", flow.flow_id);
+                is_match
+            }
+            false => {
+                log::debug!("Flow with id: {} was no match", flow.flow_id);
+                is_match
+            }
+        }
     }
 }
 
@@ -111,7 +133,7 @@ impl Server<CronConfig> for Cron {
         log::info!("Starting Cron adapter");
         let expression = "0 * * * * *";
         let schedule = Schedule::from_str(expression)?;
-        let pattern = "CRON.<";
+        let pattern = "CRON.*";
 
         loop {
             let now = Utc::now();
