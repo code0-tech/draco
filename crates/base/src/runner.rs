@@ -63,7 +63,6 @@ impl<C: LoadConfig> ServerRunner<C> {
     ) -> anyhow::Result<()> {
         let config = self.context.adapter_config.clone();
         let mut runtime_status_service: Option<DracoRuntimeStatusService> = None;
-
         log::info!("Starting Draco Variant: {}", config.draco_variant);
 
         if !config.is_static() {
@@ -85,12 +84,14 @@ impl<C: LoadConfig> ServerRunner<C> {
                 .await;
             };
 
-            let definition_service = FlowUpdateService::from_url(
+            let service_name = format!("draco-{}", config.draco_variant.to_lowercase());
+            let mut definition_service = FlowUpdateService::from_url(
                 config.aquila_url.clone(),
                 config.definition_path.as_str(),
                 config.aquila_token.clone(),
             )
-            .await;
+            .await
+            .with_definition_source(service_name);
 
             let mut success = false;
             let mut count = 1;
