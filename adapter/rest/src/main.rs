@@ -88,7 +88,7 @@ async fn execute_flow_to_hyper_response(
             error_to_http_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
         }
         FlowExecutionResult::FinishedWithoutOngoing => Response::builder()
-            .status(StatusCode::CREATED)
+            .status(StatusCode::NO_CONTENT)
             .body(Full::new(Bytes::new()))
             .unwrap(),
         FlowExecutionResult::TransportError => {
