@@ -2,7 +2,13 @@ use crate::traits::IdentifiableFlow;
 use async_nats::jetstream::kv::Config;
 use futures_lite::StreamExt;
 use prost::Message;
-use tucana::shared::{ExecutionFlow, ValidationFlow, Value};
+use tucana::shared::{
+    ExecutionFlow, Struct, ValidationFlow, Value,
+    value::Kind::{self, StructValue},
+};
+
+const EMITTER_TOPIC_PREFIX: &str = "runtime.emitter";
+const EMITTER_WAIT_TIMEOUT_SECONDS: u64 = 30;
 
 pub struct AdapterStore {
     client: async_nats::Client,
@@ -13,6 +19,13 @@ pub enum FlowIdentifyResult {
     None,
     Single(ValidationFlow),
     Multiple(Vec<ValidationFlow>),
+}
+
+pub enum FlowExecutionResult {
+    Ongoing(Value),
+    Failed,
+    FinishedWithoutOngoing,
+    TransportError,
 }
 
 impl AdapterStore {
@@ -118,32 +131,109 @@ impl AdapterStore {
         flow: ValidationFlow,
         input_value: Option<Value>,
     ) -> Option<Value> {
+        match self.execute_flow_with_emitter(flow, input_value).await {
+            FlowExecutionResult::Ongoing(value) => Some(value),
+            FlowExecutionResult::Failed
+            | FlowExecutionResult::FinishedWithoutOngoing
+            | FlowExecutionResult::TransportError => None,
+        }
+    }
+
+    pub async fn execute_flow_with_emitter(
+        &self,
+        flow: ValidationFlow,
+        input_value: Option<Value>,
+    ) -> FlowExecutionResult {
         // TODO: Replace body vaidation with triangulus when its ready
-        let uuid = uuid::Uuid::new_v4().to_string();
+        let execution_id = uuid::Uuid::new_v4().to_string();
         let flow_id = flow.flow_id;
         let execution_flow: ExecutionFlow =
             Self::convert_validation_flow(flow, input_value.clone());
         let bytes = execution_flow.encode_to_vec();
-        let topic = format!("execution.{}", uuid);
+        let execution_topic = format!("execution.{}", execution_id);
+        let emitter_topic = format!("{}.{}", EMITTER_TOPIC_PREFIX, execution_id);
+
         log::info!(
             "Requesting execution of flow {} with execution id {}",
             flow_id,
-            uuid
+            execution_id
         );
-        log::debug!("Flow Input for Execution ({}) is {:?}", uuid, input_value);
-        let result = self.client.request(topic, bytes.into()).await;
+        log::debug!(
+            "Flow Input for Execution ({}) is {:?}",
+            execution_id,
+            input_value
+        );
 
-        match result {
-            Ok(message) => match Value::decode(message.payload) {
-                Ok(value) => Some(value),
-                Err(err) => {
-                    log::error!("Failed to decode response from NATS server: {:?}", err);
-                    None
-                }
-            },
+        let mut subscriber = match self.client.subscribe(emitter_topic.clone()).await {
+            Ok(subscriber) => subscriber,
             Err(err) => {
-                log::error!("Failed to send request to NATS server: {:?}", err);
-                None
+                log::error!(
+                    "Failed to subscribe to emitter topic '{}' for flow {}: {:?}",
+                    emitter_topic,
+                    flow_id,
+                    err
+                );
+                return FlowExecutionResult::TransportError;
+            }
+        };
+
+        if let Err(err) = self
+            .client
+            .publish(execution_topic.clone(), bytes.into())
+            .await
+        {
+            log::error!(
+                "Failed to publish flow {} to execution topic '{}': {:?}",
+                flow_id,
+                execution_topic,
+                err
+            );
+            return FlowExecutionResult::TransportError;
+        }
+
+        loop {
+            let next_message = tokio::time::timeout(
+                std::time::Duration::from_secs(EMITTER_WAIT_TIMEOUT_SECONDS),
+                subscriber.next(),
+            )
+            .await;
+
+            let message = match next_message {
+                Ok(Some(message)) => message,
+                Ok(None) => {
+                    log::error!(
+                        "Emitter subscription '{}' closed before execution completed",
+                        emitter_topic
+                    );
+                    return FlowExecutionResult::TransportError;
+                }
+                Err(_) => {
+                    log::error!(
+                        "Timed out waiting for emitter events on '{}' after {}s",
+                        emitter_topic,
+                        EMITTER_WAIT_TIMEOUT_SECONDS
+                    );
+                    return FlowExecutionResult::TransportError;
+                }
+            };
+
+            let Some((emit_type, payload)) = Self::decode_emit_message(message.payload.as_ref())
+            else {
+                continue;
+            };
+
+            match emit_type.as_str() {
+                "starting" => {}
+                "ongoing" => return FlowExecutionResult::Ongoing(payload),
+                "failed" => return FlowExecutionResult::Failed,
+                "finished" => return FlowExecutionResult::FinishedWithoutOngoing,
+                other => {
+                    log::warn!(
+                        "Received unknown emitter event '{}' on '{}'",
+                        other,
+                        emitter_topic
+                    );
+                }
             }
         }
     }
@@ -173,5 +263,39 @@ impl AdapterStore {
             }
         }
         true
+    }
+
+    fn decode_emit_message(bytes: &[u8]) -> Option<(String, Value)> {
+        let decoded = match Value::decode(bytes) {
+            Ok(value) => value,
+            Err(err) => {
+                log::error!("Failed to decode emitter payload: {:?}", err);
+                return None;
+            }
+        };
+
+        let Value {
+            kind: Some(StructValue(Struct { fields })),
+        } = decoded
+        else {
+            log::warn!("Emitter payload was not a struct value");
+            return None;
+        };
+
+        let Some(emit_type) = fields.get("emit_type") else {
+            log::warn!("Emitter payload is missing 'emit_type'");
+            return None;
+        };
+        let Some(payload) = fields.get("payload") else {
+            log::warn!("Emitter payload is missing 'payload'");
+            return None;
+        };
+
+        let Some(Kind::StringValue(emit_type_str)) = emit_type.kind.as_ref() else {
+            log::warn!("Emitter payload field 'emit_type' was not a string");
+            return None;
+        };
+
+        Some((emit_type_str.clone(), payload.clone()))
     }
 }
