@@ -1,6 +1,6 @@
 use base::{
     runner::{ServerContext, ServerRunner},
-    store::FlowIdentifyResult,
+    store::{FlowExecutionResult, FlowIdentifyResult},
     traits::Server as ServerTrait,
 };
 use http_body_util::{BodyExt, Full};
@@ -18,8 +18,7 @@ use tokio::net::TcpListener;
 use tonic::async_trait;
 use tucana::shared::{
     AdapterConfiguration, RuntimeFeature, Struct, Translation, ValidationFlow, Value,
-    helper::{path::get_string, value::ToValue},
-    value::Kind,
+    helper::value::ToValue, value::Kind,
 };
 
 use crate::response::{error_to_http_response, value_to_http_response};
@@ -79,36 +78,22 @@ async fn execute_flow_to_hyper_response(
     body: Value,
     store: Arc<base::store::AdapterStore>,
 ) -> Response<Full<Bytes>> {
-    match store.validate_and_execute_flow(flow, Some(body)).await {
-        Some(result) => {
-            log::debug!("Received Result: {:?}", result);
-
-            if let Value {
-                kind:
-                    Some(Kind::StructValue(Struct {
-                        fields: result_fields,
-                    })),
-            } = &result
-                && result_fields.contains_key("name")
-                && result_fields.contains_key("message")
-                && !result_fields.contains_key("payload")
-                && !result_fields.contains_key("headers")
-            {
-                log::debug!("Detected a RuntimeError");
-                let name = get_string("name", &result);
-                let message = get_string("message", &result);
-
-                return error_to_http_response(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("{}: {}", name.unwrap(), message.unwrap()).as_str(),
-                );
-            }
-
+    match store.execute_flow_with_emitter(flow, Some(body)).await {
+        FlowExecutionResult::Ongoing(result) => {
+            log::debug!("Received first ongoing response from emitter");
             value_to_http_response(result)
         }
-        None => {
-            log::error!("flow execution failed");
-            error_to_http_response(StatusCode::INTERNAL_SERVER_ERROR, "Flow execution failed")
+        FlowExecutionResult::Failed => {
+            log::error!("Flow execution failed event received from emitter");
+            error_to_http_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+        }
+        FlowExecutionResult::FinishedWithoutOngoing => Response::builder()
+            .status(StatusCode::CREATED)
+            .body(Full::new(Bytes::new()))
+            .unwrap(),
+        FlowExecutionResult::TransportError => {
+            log::error!("Flow execution transport error");
+            error_to_http_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
         }
     }
 }
