@@ -9,7 +9,7 @@ use std::{sync::Arc, time::Duration};
 use tokio::{signal, time::sleep};
 use tonic::transport::Server;
 use tonic_health::pb::health_server::HealthServer;
-use tucana::shared::{AdapterConfiguration, RuntimeFeature};
+use tucana::shared::AdapterStatusConfiguration;
 
 /// Context passed to adapter server implementations containing all shared resources
 pub struct ServerContext<C: LoadConfig> {
@@ -58,8 +58,7 @@ impl<C: LoadConfig> ServerRunner<C> {
 
     pub async fn serve(
         self,
-        runtime_feature: Vec<RuntimeFeature>,
-        runtime_config: Vec<AdapterConfiguration>,
+        runtime_config: Vec<AdapterStatusConfiguration>,
     ) -> anyhow::Result<()> {
         let config = self.context.adapter_config.clone();
         let mut runtime_status_service: Option<DracoRuntimeStatusService> = None;
@@ -71,7 +70,6 @@ impl<C: LoadConfig> ServerRunner<C> {
                     config.aquila_url.clone(),
                     config.aquila_token.clone(),
                     config.draco_variant.clone(),
-                    runtime_feature,
                     runtime_config,
                 )
                 .await,

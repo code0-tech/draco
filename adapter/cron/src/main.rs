@@ -5,8 +5,8 @@ use base::traits::{IdentifiableFlow, LoadConfig, Server};
 use chrono::{DateTime, Datelike, Timelike, Utc};
 use cron::Schedule;
 use std::str::FromStr;
+use tucana::shared::ValidationFlow;
 use tucana::shared::value::Kind;
-use tucana::shared::{RuntimeFeature, Translation, ValidationFlow};
 
 #[derive(Default)]
 struct Cron {}
@@ -25,18 +25,7 @@ async fn main() {
     let server = Cron::default();
     let runner = ServerRunner::new(server).await.unwrap();
 
-    let featues = vec![RuntimeFeature {
-                name: vec![Translation {
-                    code: "en-US".to_string(),
-                    content: "Cron Adapter".to_string(),
-                }],
-                description: vec![Translation {
-                    code: "en-US".to_string(),
-                    content: "A Cron-Adapter is a time-based scheduler that runs commands or scripts automatically at specified times or intervals.".to_string(),
-                }],
-            }];
-
-    runner.serve(featues, vec![]).await.unwrap();
+    runner.serve(vec![]).await.unwrap();
 }
 
 struct Time {
