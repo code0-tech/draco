@@ -6,7 +6,7 @@ use crate::{
 };
 use code0_flow::flow_service::FlowUpdateService;
 use std::{sync::Arc, time::Duration};
-use tokio::{signal, time::sleep};
+use tokio::{signal, task::JoinHandle, time::sleep};
 use tonic::transport::Server;
 use tonic_health::pb::health_server::HealthServer;
 use tucana::shared::{AdapterConfiguration, RuntimeFeature};
@@ -62,11 +62,12 @@ impl<C: LoadConfig> ServerRunner<C> {
         runtime_config: Vec<AdapterConfiguration>,
     ) -> anyhow::Result<()> {
         let config = self.context.adapter_config.clone();
-        let mut runtime_status_service: Option<DracoRuntimeStatusService> = None;
+        let mut runtime_status_service: Option<Arc<DracoRuntimeStatusService>> = None;
+        let mut runtime_status_heartbeat_task: Option<JoinHandle<()>> = None;
         log::info!("Starting Draco Variant: {}", config.draco_variant);
 
         if !config.is_static() {
-            runtime_status_service = Some(
+            runtime_status_service = Some(Arc::new(
                 DracoRuntimeStatusService::from_url(
                     config.aquila_url.clone(),
                     config.aquila_token.clone(),
@@ -75,7 +76,7 @@ impl<C: LoadConfig> ServerRunner<C> {
                     runtime_config,
                 )
                 .await,
-            );
+            ));
 
             if let Some(ser) = &runtime_status_service {
                 ser.update_runtime_status_by_status(
@@ -148,6 +149,35 @@ impl<C: LoadConfig> ServerRunner<C> {
                 tucana::shared::adapter_runtime_status::Status::Running,
             )
             .await;
+
+            if config.adapter_status_update_interval_seconds > 0 {
+                let status_service = Arc::clone(ser);
+                let update_interval_seconds = config.adapter_status_update_interval_seconds;
+                runtime_status_heartbeat_task = Some(tokio::spawn(async move {
+                    let mut interval =
+                        tokio::time::interval(Duration::from_secs(update_interval_seconds));
+                    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+                    // First tick is immediate; consume it so heartbeats start after the interval.
+                    interval.tick().await;
+
+                    loop {
+                        interval.tick().await;
+                        status_service
+                            .update_runtime_status_by_status(
+                                tucana::shared::adapter_runtime_status::Status::Running,
+                            )
+                            .await;
+                    }
+                }));
+
+                log::info!(
+                    "Runtime status heartbeat started (interval={}s)",
+                    update_interval_seconds
+                );
+            } else {
+                log::info!("Runtime status heartbeat is disabled");
+            }
         };
         log::info!("Draco successfully initialized.");
 
@@ -212,6 +242,15 @@ impl<C: LoadConfig> ServerRunner<C> {
                 }
             }
         }
+        if let Some(handle) = runtime_status_heartbeat_task.take() {
+            handle.abort();
+            if let Err(err) = handle.await {
+                if !err.is_cancelled() {
+                    log::warn!("Runtime status heartbeat task ended unexpectedly: {}", err);
+                }
+            }
+        }
+
         if let Some(ser) = &runtime_status_service {
             ser.update_runtime_status_by_status(
                 tucana::shared::adapter_runtime_status::Status::Stopped,
