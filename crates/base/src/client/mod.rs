@@ -101,7 +101,7 @@ impl DracoRuntimeStatusService {
         &self,
         status: tucana::shared::adapter_runtime_status::Status,
     ) {
-        log::info!("Updating the current Runtime Status!");
+        log::info!("Updating the current runtime status!");
         let mut client = RuntimeStatusServiceClient::new(self.channel.clone());
 
         let now = SystemTime::now();
@@ -128,12 +128,10 @@ impl DracoRuntimeStatusService {
         );
 
         match client.update(request).await {
-            Ok(response) => {
-                log::info!(
-                    "Was the update of the RuntimeStatus accepted by Sagittarius? {}",
-                    response.into_inner().success
-                );
-            }
+            Ok(response) => match response.into_inner().success {
+                true => log::info!("Successful update of the runtime status."),
+                false => log::warn!("Failed to update runtime status."),
+            },
             Err(err) => {
                 log::error!("Failed to update RuntimeStatus: {:?}", err);
             }

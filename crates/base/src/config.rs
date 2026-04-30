@@ -61,6 +61,12 @@ pub struct AdapterConfig {
     ///
     /// The Variant of Draco. E.g. Http, Cron...
     pub draco_variant: String,
+
+    /// Adapter Status Update Interval Seconds
+    ///
+    /// Interval for runtime status heartbeat updates while the adapter is running.
+    /// Set to 0 to disable periodic heartbeat updates.
+    pub adapter_status_update_interval_seconds: u64,
 }
 
 impl AdapterConfig {
@@ -93,6 +99,10 @@ impl AdapterConfig {
 
         let draco_variant =
             code0_flow::flow_config::env_with_default("DRACO_VARIANT", String::from("None"));
+        let adapter_status_update_interval_seconds = code0_flow::flow_config::env_with_default(
+            "ADAPTER_STATUS_UPDATE_INTERVAL_SECONDS",
+            30_u64,
+        );
         Self {
             environment,
             nats_bucket,
@@ -105,6 +115,7 @@ impl AdapterConfig {
             definition_path,
             with_health_service,
             draco_variant,
+            adapter_status_update_interval_seconds,
         }
     }
 
