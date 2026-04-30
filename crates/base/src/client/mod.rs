@@ -11,14 +11,13 @@ use tucana::{
         RuntimeStatusUpdateRequest, runtime_status_service_client::RuntimeStatusServiceClient,
         runtime_status_update_request::Status,
     },
-    shared::{AdapterConfiguration, AdapterRuntimeStatus, RuntimeFeature},
+    shared::{AdapterRuntimeStatus, AdapterStatusConfiguration},
 };
 
 pub struct DracoRuntimeStatusService {
     channel: Channel,
     identifier: String,
-    features: Vec<RuntimeFeature>,
-    configs: Vec<AdapterConfiguration>,
+    configs: Vec<AdapterStatusConfiguration>,
     aquila_token: String,
 }
 
@@ -74,24 +73,21 @@ impl DracoRuntimeStatusService {
         aquila_url: String,
         aquila_token: String,
         identifier: String,
-        features: Vec<RuntimeFeature>,
-        configs: Vec<AdapterConfiguration>,
+        configs: Vec<AdapterStatusConfiguration>,
     ) -> Self {
         let channel = create_channel_with_retry("Aquila", aquila_url).await;
-        Self::new(channel, identifier, features, configs, aquila_token)
+        Self::new(channel, identifier, configs, aquila_token)
     }
 
     pub fn new(
         channel: Channel,
         identifier: String,
-        features: Vec<RuntimeFeature>,
-        configs: Vec<AdapterConfiguration>,
+        configs: Vec<AdapterStatusConfiguration>,
         aquila_token: String,
     ) -> Self {
         DracoRuntimeStatusService {
             channel,
             identifier,
-            features,
             configs,
             aquila_token,
         }
@@ -121,7 +117,6 @@ impl DracoRuntimeStatusService {
                     status: status.into(),
                     timestamp: timestamp as i64,
                     identifier: self.identifier.clone(),
-                    features: self.features.clone(),
                     configurations: self.configs.clone(),
                 })),
             },
