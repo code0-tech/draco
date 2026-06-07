@@ -1,5 +1,5 @@
 use crate::{
-    client::{DracoRuntimeStatusService},
+    client::DracoRuntimeStatusService,
     config::AdapterConfig,
     store::AdapterStore,
     traits::{LoadConfig, Server as AdapterServer},
@@ -55,10 +55,7 @@ impl<C: LoadConfig> ServerRunner<C> {
         })
     }
 
-    pub async fn serve(
-        self,
-        appendix: Vec<ModuleDefinitionAppendix>,
-    ) -> anyhow::Result<()> {
+    pub async fn serve(self, appendix: Vec<ModuleDefinitionAppendix>) -> anyhow::Result<()> {
         let config = self.context.adapter_config.clone();
         let mut runtime_status_service: Option<Arc<DracoRuntimeStatusService>> = None;
         let mut runtime_status_heartbeat_task: Option<JoinHandle<()>> = None;

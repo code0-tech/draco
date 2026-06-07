@@ -9,7 +9,8 @@ use tonic::{
 use tucana::{
     aquila::{
         RuntimeStatusUpdateRequest, runtime_status_service_client::RuntimeStatusServiceClient,
-    }, shared::ModuleStatus,
+    },
+    shared::ModuleStatus,
 };
 
 pub struct DracoRuntimeStatusService {
@@ -66,20 +67,12 @@ pub async fn create_channel_with_retry(channel_name: &str, url: String) -> Chann
     }
 }
 impl DracoRuntimeStatusService {
-    pub async fn from_url(
-        aquila_url: String,
-        aquila_token: String,
-        identifier: String,
-    ) -> Self {
+    pub async fn from_url(aquila_url: String, aquila_token: String, identifier: String) -> Self {
         let channel = create_channel_with_retry("Aquila", aquila_url).await;
         Self::new(channel, identifier, aquila_token)
     }
 
-    pub fn new(
-        channel: Channel,
-        identifier: String,
-        aquila_token: String,
-    ) -> Self {
+    pub fn new(channel: Channel, identifier: String, aquila_token: String) -> Self {
         DracoRuntimeStatusService {
             channel,
             identifier,
