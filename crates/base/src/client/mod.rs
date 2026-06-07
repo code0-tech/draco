@@ -9,15 +9,12 @@ use tonic::{
 use tucana::{
     aquila::{
         RuntimeStatusUpdateRequest, runtime_status_service_client::RuntimeStatusServiceClient,
-        runtime_status_update_request::Status,
-    },
-    shared::{AdapterRuntimeStatus, AdapterStatusConfiguration},
+    }, shared::ModuleStatus,
 };
 
 pub struct DracoRuntimeStatusService {
     channel: Channel,
     identifier: String,
-    configs: Vec<AdapterStatusConfiguration>,
     aquila_token: String,
 }
 
@@ -73,29 +70,26 @@ impl DracoRuntimeStatusService {
         aquila_url: String,
         aquila_token: String,
         identifier: String,
-        configs: Vec<AdapterStatusConfiguration>,
     ) -> Self {
         let channel = create_channel_with_retry("Aquila", aquila_url).await;
-        Self::new(channel, identifier, configs, aquila_token)
+        Self::new(channel, identifier, aquila_token)
     }
 
     pub fn new(
         channel: Channel,
         identifier: String,
-        configs: Vec<AdapterStatusConfiguration>,
         aquila_token: String,
     ) -> Self {
         DracoRuntimeStatusService {
             channel,
             identifier,
-            configs,
             aquila_token,
         }
     }
 
     pub async fn update_runtime_status_by_status(
         &self,
-        status: tucana::shared::adapter_runtime_status::Status,
+        status: tucana::shared::module_status::StatusVariant,
     ) {
         log::info!("Updating the current runtime status!");
         let mut client = RuntimeStatusServiceClient::new(self.channel.clone());
@@ -113,12 +107,11 @@ impl DracoRuntimeStatusService {
             get_authorization_metadata(&self.aquila_token),
             Extensions::new(),
             RuntimeStatusUpdateRequest {
-                status: Some(Status::AdapterRuntimeStatus(AdapterRuntimeStatus {
+                status: Some(ModuleStatus {
                     status: status.into(),
                     timestamp: timestamp as i64,
                     identifier: self.identifier.clone(),
-                    configurations: self.configs.clone(),
-                })),
+                }),
             },
         );
 
