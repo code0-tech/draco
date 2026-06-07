@@ -4,12 +4,11 @@ use crate::{
     store::AdapterStore,
     traits::{LoadConfig, Server as AdapterServer},
 };
-use code0_flow::flow_service::FlowUpdateService;
+use code0_flow::flow_service::{FlowUpdateService, ModuleDefinitionAppendix};
 use std::{sync::Arc, time::Duration};
 use tokio::{signal, task::JoinHandle, time::sleep};
 use tonic::transport::Server;
 use tonic_health::pb::health_server::HealthServer;
-use tucana::shared::AdapterStatusConfiguration;
 
 /// Context passed to adapter server implementations containing all shared resources
 pub struct ServerContext<C: LoadConfig> {
@@ -56,10 +55,7 @@ impl<C: LoadConfig> ServerRunner<C> {
         })
     }
 
-    pub async fn serve(
-        self,
-        runtime_config: Vec<AdapterStatusConfiguration>,
-    ) -> anyhow::Result<()> {
+    pub async fn serve(self, appendix: Vec<ModuleDefinitionAppendix>) -> anyhow::Result<()> {
         let config = self.context.adapter_config.clone();
         let mut runtime_status_service: Option<Arc<DracoRuntimeStatusService>> = None;
         let mut runtime_status_heartbeat_task: Option<JoinHandle<()>> = None;
@@ -71,26 +67,27 @@ impl<C: LoadConfig> ServerRunner<C> {
                     config.aquila_url.clone(),
                     config.aquila_token.clone(),
                     config.draco_variant.clone(),
-                    runtime_config,
                 )
                 .await,
             ));
 
             if let Some(ser) = &runtime_status_service {
                 ser.update_runtime_status_by_status(
-                    tucana::shared::adapter_runtime_status::Status::NotReady,
+                    tucana::shared::module_status::StatusVariant::NotReady,
                 )
                 .await;
             };
 
             let service_name = format!("draco-{}", config.draco_variant.to_lowercase());
+
             let mut definition_service = FlowUpdateService::from_url(
                 config.aquila_url.clone(),
                 config.definition_path.as_str(),
                 config.aquila_token.clone(),
             )
             .await
-            .with_definition_source(service_name);
+            .with_definition_source(service_name)
+            .with_appendix(appendix);
 
             let mut success = false;
             let mut count = 1;
@@ -144,7 +141,7 @@ impl<C: LoadConfig> ServerRunner<C> {
 
         if let Some(ser) = &runtime_status_service {
             ser.update_runtime_status_by_status(
-                tucana::shared::adapter_runtime_status::Status::Running,
+                tucana::shared::module_status::StatusVariant::Running,
             )
             .await;
 
@@ -163,7 +160,7 @@ impl<C: LoadConfig> ServerRunner<C> {
                         interval.tick().await;
                         status_service
                             .update_runtime_status_by_status(
-                                tucana::shared::adapter_runtime_status::Status::Running,
+                                tucana::shared::module_status::StatusVariant::Running,
                             )
                             .await;
                     }
@@ -251,7 +248,7 @@ impl<C: LoadConfig> ServerRunner<C> {
 
         if let Some(ser) = &runtime_status_service {
             ser.update_runtime_status_by_status(
-                tucana::shared::adapter_runtime_status::Status::Stopped,
+                tucana::shared::module_status::StatusVariant::Stopped,
             )
             .await;
         };
