@@ -3,6 +3,7 @@ use base::{
     store::{FlowExecutionResult, FlowIdentifyResult},
     traits::Server as ServerTrait,
 };
+use code0_flow::flow_service::ModuleDefinitionAppendix;
 use http_body_util::{BodyExt, Full};
 use hyper::server::conn::http1;
 use hyper::{Request, Response};
@@ -17,7 +18,7 @@ use std::sync::Arc;
 use tokio::net::TcpListener;
 use tonic::async_trait;
 use tucana::shared::{
-    AdapterStatusConfiguration, Struct, ValidationFlow, Value, helper::value::ToValue, value::Kind,
+    Endpoint, ModuleDefinition, Struct, ValidationFlow, Value, helper::value::ToValue, value::Kind,
 };
 
 use crate::response::{error_to_http_response, value_to_http_response};
@@ -42,14 +43,18 @@ async fn main() {
     let addr = runner.get_server_config().port;
     let host = runner.get_server_config().host.clone();
 
-    let configs = vec![AdapterStatusConfiguration {
-        flow_type_identifiers: vec![String::from("REST")],
-        data: Some(
-            tucana::shared::adapter_status_configuration::Data::Endpoint(format!(
-                r"{}:{}/${{project_slug}}/${{flow_setting_identifier}}",
-                host, addr
+    let configs = vec![ModuleDefinitionAppendix {
+        module_identifier: String::from("draco-rest"),
+        definitions: vec![ModuleDefinition {
+            flow_type_identifier: vec![String::from("REST")],
+            value: Some(tucana::shared::module_definition::Value::Endpoint(
+                Endpoint {
+                    host,
+                    port: addr as i64,
+                    endpoint: String::from(r"/${{project_slug}}${{httpURL}}"),
+                },
             )),
-        ),
+        }],
     }];
     match runner.serve(configs).await {
         Ok(_) => (),
