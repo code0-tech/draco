@@ -40,8 +40,8 @@ async fn main() {
     };
     log::info!("Successfully created runner for http service");
 
-    let addr = runner.get_server_config().port;
-    let host = runner.get_server_config().host.clone();
+    let external_addr = runner.get_server_config().external_port;
+    let external_host = runner.get_server_config().external_host.clone();
 
     let configs = vec![ModuleDefinitionAppendix {
         module_identifier: String::from("draco-rest"),
@@ -49,8 +49,8 @@ async fn main() {
             flow_type_identifier: vec![String::from("REST")],
             value: Some(tucana::shared::module_definition::Value::Endpoint(
                 Endpoint {
-                    host,
-                    port: addr as i64,
+                    host: external_host,
+                    port: external_addr as i64,
                     endpoint: String::from(r"/${{project_slug}}${{httpURL}}"),
                 },
             )),
