@@ -11,11 +11,14 @@ pub struct HttpServerConfig {
 
 impl LoadConfig for HttpServerConfig {
     fn load() -> Self {
+        let port = env_with_default("HTTP_SERVER_PORT", 8080);
+        let host = env_with_default("HTTP_SERVER_HOST", String::from("127.0.0.1"));
+
         Self {
-            port: env_with_default("HTTP_SERVER_PORT", 8080),
-            host: env_with_default("HTTP_SERVER_HOST", String::from("127.0.0.1")),
-            external_port: env_with_default("EXTERNAL_HTTP_SERVER_PORT", 8080),
-            external_host: env_with_default("EXTERNAL_HTTP_SERVER_HOST", String::from("127.0.0.1")),
+            host: host.clone(),
+            port,
+            external_port: env_with_default("EXTERNAL_HTTP_SERVER_PORT", port),
+            external_host: env_with_default("EXTERNAL_HTTP_SERVER_HOST", host),
         }
     }
 }
