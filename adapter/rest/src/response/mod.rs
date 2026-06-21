@@ -5,12 +5,39 @@ use hyper::{
     header::{HeaderName, HeaderValue},
 };
 use std::collections::HashMap;
+use std::sync::Arc;
 use tucana::shared::{
-    Struct, Value,
+    Struct, ValidationFlow, Value,
     value::Kind::{self, StructValue},
 };
 
 use crate::content_type;
+use base::store::FlowExecutionResult;
+
+pub async fn flow_execution_to_http_response(
+    flow: ValidationFlow,
+    input: Value,
+    store: Arc<base::store::AdapterStore>,
+) -> Response<Full<Bytes>> {
+    match store.execute_flow_with_emitter(flow, Some(input)).await {
+        FlowExecutionResult::Ongoing(result) => {
+            log::debug!("Received first ongoing response from emitter");
+            value_to_http_response(result)
+        }
+        FlowExecutionResult::Failed => {
+            log::error!("Flow execution failed event received from emitter");
+            error_to_http_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+        }
+        FlowExecutionResult::FinishedWithoutOngoing => Response::builder()
+            .status(StatusCode::NO_CONTENT)
+            .body(Full::new(Bytes::new()))
+            .unwrap(),
+        FlowExecutionResult::TransportError => {
+            log::error!("Flow execution transport error");
+            error_to_http_response(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+        }
+    }
+}
 
 pub fn error_to_http_response(status: StatusCode, msg: &str) -> Response<Full<Bytes>> {
     let body = format!(r#"{{"error": "{}"}}"#, msg);
@@ -51,7 +78,6 @@ pub fn value_to_http_response(value: Value) -> Response<Full<Bytes>> {
         );
     };
 
-    // headers struct
     let Value {
         kind: Some(Kind::StructValue(Struct {
             fields: header_fields,
@@ -82,7 +108,6 @@ pub fn value_to_http_response(value: Value) -> Response<Full<Bytes>> {
         http_headers.insert("content-type".to_string(), "application/json".to_string());
     }
 
-    // status_code number
     let Some(Kind::NumberValue(code)) = status_code_val.kind else {
         return error_to_http_response(
             StatusCode::INTERNAL_SERVER_ERROR,
