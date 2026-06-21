@@ -21,8 +21,10 @@ use tucana::shared::{
     Endpoint, ModuleDefinition, Struct, ValidationFlow, Value, helper::value::ToValue, value::Kind,
 };
 
+use crate::auth::{authenticate_header_name, validate_flow_auth};
 use crate::response::{error_to_http_response, value_to_http_response};
 
+mod auth;
 mod config;
 mod content_type;
 mod response;
@@ -112,21 +114,6 @@ pub async fn handle_request(
         }
     };
 
-    let request_body_value = match content_type::parse_body_from_headers(&headers, &body_bytes) {
-        Ok(value) => value,
-        Err(err) => {
-            log::warn!("Failed to parse request body: {}", err);
-            let status_code = match err {
-                content_type::BodyParseError::UnsupportedContentType { .. } => {
-                    StatusCode::UNSUPPORTED_MEDIA_TYPE
-                }
-                _ => StatusCode::BAD_REQUEST,
-            };
-
-            return Ok(error_to_http_response(status_code, &err.to_string()));
-        }
-    };
-
     // slug matching
     let Some(slug) = route::extract_slug_from_path(&path) else {
         return Ok(error_to_http_response(
@@ -143,6 +130,30 @@ pub async fn handle_request(
 
     let resp = match store.get_possible_flow_match(pattern, route).await {
         FlowIdentifyResult::Single(flow) => {
+            if let Err(err) = validate_flow_auth(&flow, &headers) {
+                let mut response = error_to_http_response(err.status_code(), err.message());
+                response
+                    .headers_mut()
+                    .insert(authenticate_header_name(), err.challenge());
+                return Ok(response);
+            }
+
+            let request_body_value =
+                match content_type::parse_body_from_headers(&headers, &body_bytes) {
+                    Ok(value) => value,
+                    Err(err) => {
+                        log::warn!("Failed to parse request body: {}", err);
+                        let status_code = match err {
+                            content_type::BodyParseError::UnsupportedContentType { .. } => {
+                                StatusCode::UNSUPPORTED_MEDIA_TYPE
+                            }
+                            _ => StatusCode::BAD_REQUEST,
+                        };
+
+                        return Ok(error_to_http_response(status_code, &err.to_string()));
+                    }
+                };
+
             let mut header_fields = std::collections::HashMap::new();
             let mut fields = std::collections::HashMap::new();
 
