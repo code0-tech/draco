@@ -1534,6 +1534,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "base",
+ "base64",
  "code0-flow",
  "http-body-util",
  "hyper",

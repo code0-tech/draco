@@ -13,6 +13,7 @@ regex = { workspace = true }
 tonic = { workspace = true }
 base = { workspace = true }
 anyhow = { workspace = true }
+base64 = "0.22.1"
 hyper-util = "0.1.19"
 hyper = "1.8.1"
 http-body-util = "0.1.3"
