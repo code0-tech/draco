@@ -67,6 +67,12 @@ pub struct AdapterConfig {
     /// Interval for runtime status heartbeat updates while the adapter is running.
     /// Set to 0 to disable periodic heartbeat updates.
     pub adapter_status_update_interval_seconds: u64,
+
+    /// Timeout in seconds for establishing Aquila gRPC channels.
+    pub aquila_grpc_connect_timeout_secs: u64,
+
+    /// Timeout in seconds for Aquila gRPC requests.
+    pub aquila_grpc_request_timeout_secs: u64,
 }
 
 impl AdapterConfig {
@@ -103,6 +109,10 @@ impl AdapterConfig {
             "ADAPTER_STATUS_UPDATE_INTERVAL_SECONDS",
             30_u64,
         );
+        let aquila_grpc_connect_timeout_secs =
+            code0_flow::flow_config::env_with_default("AQUILA_GRPC_CONNECT_TIMEOUT_SECS", 2_u64);
+        let aquila_grpc_request_timeout_secs =
+            code0_flow::flow_config::env_with_default("AQUILA_GRPC_REQUEST_TIMEOUT_SECS", 10_u64);
         Self {
             environment,
             nats_bucket,
@@ -116,6 +126,8 @@ impl AdapterConfig {
             with_health_service,
             draco_variant,
             adapter_status_update_interval_seconds,
+            aquila_grpc_connect_timeout_secs,
+            aquila_grpc_request_timeout_secs,
         }
     }
 

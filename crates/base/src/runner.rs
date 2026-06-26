@@ -67,6 +67,8 @@ impl<C: LoadConfig> ServerRunner<C> {
                     config.aquila_url.clone(),
                     config.aquila_token.clone(),
                     config.draco_variant.clone(),
+                    Duration::from_secs(config.aquila_grpc_connect_timeout_secs),
+                    Duration::from_secs(config.aquila_grpc_request_timeout_secs),
                 )
                 .await,
             ));
@@ -84,6 +86,8 @@ impl<C: LoadConfig> ServerRunner<C> {
                 config.aquila_url.clone(),
                 config.definition_path.as_str(),
                 config.aquila_token.clone(),
+                Duration::from_secs(config.aquila_grpc_connect_timeout_secs),
+                Duration::from_secs(config.aquila_grpc_request_timeout_secs),
             )
             .await
             .with_definition_source(service_name)
