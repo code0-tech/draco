@@ -22,8 +22,12 @@ pub struct DracoRuntimeStatusService {
 const MAX_BACKOFF: u64 = 2000 * 60;
 const MAX_RETRIES: i8 = 10;
 
-// Will create a channel and retry if its not possible
-pub async fn create_channel_with_retry(channel_name: &str, url: String) -> Channel {
+pub async fn create_channel_with_retry(
+    channel_name: &str,
+    url: String,
+    connect_timeout: std::time::Duration,
+    request_timeout: std::time::Duration,
+) -> Channel {
     let mut backoff = 100;
     let mut retries = 0;
 
@@ -31,8 +35,7 @@ pub async fn create_channel_with_retry(channel_name: &str, url: String) -> Chann
         let channel = match Endpoint::from_shared(url.clone()) {
             Ok(c) => {
                 log::debug!("Creating a new endpoint for the: {} Service", channel_name);
-                c.connect_timeout(std::time::Duration::from_secs(2))
-                    .timeout(std::time::Duration::from_secs(10))
+                c.connect_timeout(connect_timeout).timeout(request_timeout)
             }
             Err(err) => {
                 panic!(
@@ -67,8 +70,15 @@ pub async fn create_channel_with_retry(channel_name: &str, url: String) -> Chann
     }
 }
 impl DracoRuntimeStatusService {
-    pub async fn from_url(aquila_url: String, aquila_token: String, identifier: String) -> Self {
-        let channel = create_channel_with_retry("Aquila", aquila_url).await;
+    pub async fn from_url(
+        aquila_url: String,
+        aquila_token: String,
+        identifier: String,
+        connect_timeout: std::time::Duration,
+        request_timeout: std::time::Duration,
+    ) -> Self {
+        let channel =
+            create_channel_with_retry("Aquila", aquila_url, connect_timeout, request_timeout).await;
         Self::new(channel, identifier, aquila_token)
     }
 
