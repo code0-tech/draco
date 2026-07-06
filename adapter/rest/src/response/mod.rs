@@ -19,7 +19,12 @@ pub async fn flow_execution_to_http_response(
     input: Value,
     store: Arc<base::store::AdapterStore>,
 ) -> Response<Full<Bytes>> {
-    match store.execute_flow_with_emitter(flow, Some(input)).await {
+    let result = store.execute_flow_with_emitter(flow, Some(input)).await;
+    flow_execution_result_to_http_response(result)
+}
+
+fn flow_execution_result_to_http_response(result: FlowExecutionResult) -> Response<Full<Bytes>> {
+    match result {
         FlowExecutionResult::Ongoing(result) => {
             log::debug!("Received first ongoing response from emitter");
             value_to_http_response(result)
@@ -185,4 +190,88 @@ fn create_http_response(
     }
 
     builder.body(Full::new(Bytes::from(body))).unwrap()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use http_body_util::BodyExt;
+    use tucana::shared::{NumberValue, number_value};
+
+    #[tokio::test]
+    async fn response_signal_content_is_used() {
+        let response_value = Value {
+            kind: Some(Kind::StructValue(Struct {
+                fields: [
+                    (
+                        "headers".to_string(),
+                        Value {
+                            kind: Some(Kind::StructValue(Struct {
+                                fields: [
+                                    (
+                                        "content-type".to_string(),
+                                        Value {
+                                            kind: Some(Kind::StringValue("text/plain".to_string())),
+                                        },
+                                    ),
+                                    (
+                                        "x-flow-response".to_string(),
+                                        Value {
+                                            kind: Some(Kind::StringValue("matched".to_string())),
+                                        },
+                                    ),
+                                ]
+                                .into_iter()
+                                .collect(),
+                            })),
+                        },
+                    ),
+                    (
+                        "http_status_code".to_string(),
+                        Value {
+                            kind: Some(Kind::NumberValue(NumberValue {
+                                number: Some(number_value::Number::Integer(201)),
+                            })),
+                        },
+                    ),
+                    (
+                        "payload".to_string(),
+                        Value {
+                            kind: Some(Kind::StringValue("response body".to_string())),
+                        },
+                    ),
+                ]
+                .into_iter()
+                .collect(),
+            })),
+        };
+
+        let response =
+            flow_execution_result_to_http_response(FlowExecutionResult::Ongoing(response_value));
+
+        assert_eq!(response.status(), StatusCode::CREATED);
+        assert_eq!(response.headers()["content-type"], "text/plain");
+        assert_eq!(response.headers()["x-flow-response"], "matched");
+        assert_eq!(
+            response.into_body().collect().await.unwrap().to_bytes(),
+            "response body"
+        );
+    }
+
+    #[tokio::test]
+    async fn finished_flow_without_response_returns_no_content() {
+        let response =
+            flow_execution_result_to_http_response(FlowExecutionResult::FinishedWithoutOngoing);
+
+        assert_eq!(response.status(), StatusCode::NO_CONTENT);
+        assert!(
+            response
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes()
+                .is_empty()
+        );
+    }
 }
