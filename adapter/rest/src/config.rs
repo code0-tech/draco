@@ -7,7 +7,6 @@ pub struct HttpServerConfig {
     pub external_port: u16,
     pub host: String,
     pub external_host: String,
-    pub https_configured: bool,
 }
 
 impl LoadConfig for HttpServerConfig {
@@ -20,7 +19,6 @@ impl LoadConfig for HttpServerConfig {
             port,
             external_port: env_with_default("EXTERNAL_HTTP_SERVER_PORT", port),
             external_host: env_with_default("EXTERNAL_HTTP_SERVER_HOST", host),
-            https_configured: env_with_default("HTTPS_CONFIGURED", false),
         }
     }
 }

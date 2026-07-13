@@ -282,9 +282,9 @@ dependencies = [
 
 [[package]]
 name = "code0-flow"
-version = "0.0.41"
+version = "0.0.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5373ac809b37ed939f2fd9094d20cc8534a87d18ac5551ee7dfc69c6a7596ea"
+checksum = "f6bac81931da426429ac4ca93b80ff246900d64e8190ec2c4e0382ff35157857"
 dependencies = [
  "async-nats",
  "dotenv",
@@ -2194,9 +2194,9 @@ dependencies = [
 
 [[package]]
 name = "tucana"
-version = "0.0.76"
+version = "0.0.75"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "473db4c6dff2f83d8275b92abe90873a5e68b5ca5cf02e2aa0154fdd69bc925a"
+checksum = "b6a58d33f2013edc52c4d782b3bdcdccff2b6b7f2233b91fc833e2f69df2277b"
 dependencies = [
  "pbjson",
  "pbjson-build",
@@ -2456,7 +2456,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
