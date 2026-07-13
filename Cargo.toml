@@ -7,8 +7,8 @@ version = "0.0.0"
 edition = "2024"
 
 [workspace.dependencies]
-code0-flow = { version = "0.0.40", features = ["flow_health", "flow_config", "flow_service"] }
-tucana = { version = "0.0.75", features = ["aquila"] }
+code0-flow = { version = "0.0.41", features = ["flow_health", "flow_config", "flow_service"] }
+tucana = { version = "0.0.76", features = ["aquila"] }
 serde_json = { version = "1.0.138" }
 log = "0.4.27"
 env_logger = "0.11.8"
