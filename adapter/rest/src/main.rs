@@ -33,6 +33,11 @@ async fn main() {
     let external_addr = runner.get_server_config().external_port;
     let external_host = runner.get_server_config().external_host.clone();
 
+    let protocol = match runner.get_server_config().https_configured {
+        true => String::from("https"),
+        false => String::from("http"),
+    };
+
     let configs = vec![ModuleDefinitionAppendix {
         module_identifier: String::from("draco-rest"),
         definitions: vec![ModuleDefinition {
@@ -42,6 +47,7 @@ async fn main() {
                     host: external_host,
                     port: external_addr as i64,
                     endpoint: String::from(r"/${{project_slug}}${{httpURL}}"),
+                    protocol: protocol,
                 },
             )),
         }],
