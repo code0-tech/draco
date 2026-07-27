@@ -113,6 +113,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-nats"
+version = "0.50.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d83a251fa1a4c9d0fe6e816b7acd60549e473e08d14f27a1d992c2675abff05f"
+dependencies = [
+ "base64",
+ "bytes",
+ "futures-util",
+ "memchr",
+ "nkeys",
+ "nuid",
+ "pin-project",
+ "portable-atomic",
+ "rand 0.10.1",
+ "regex",
+ "ring",
+ "rustls-native-certs",
+ "rustls-pki-types",
+ "rustls-webpki",
+ "serde",
+ "serde_json",
+ "serde_nanos",
+ "serde_repr",
+ "thiserror",
+ "time",
+ "tokio",
+ "tokio-rustls",
+ "tokio-stream",
+ "tokio-util",
+ "tokio-websockets",
+ "tracing",
+ "tryhard",
+ "url",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.91"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -185,7 +221,7 @@ name = "base"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "async-nats",
+ "async-nats 0.50.0",
  "async-trait",
  "code0-flow",
  "env_logger",
@@ -286,7 +322,7 @@ version = "0.0.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5373ac809b37ed939f2fd9094d20cc8534a87d18ac5551ee7dfc69c6a7596ea"
 dependencies = [
- "async-nats",
+ "async-nats 0.49.1",
  "dotenv",
  "futures-core",
  "log",
