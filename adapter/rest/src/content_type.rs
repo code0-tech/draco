@@ -2,10 +2,7 @@ use hyper::{
     HeaderMap,
     header::{CONTENT_TYPE, HeaderValue},
 };
-use tucana::shared::{
-    Value, number_value,
-    value::Kind::{self, StringValue},
-};
+use tucana::shared::{Value, value::Kind::StringValue};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum BodyFormat {
@@ -37,8 +34,14 @@ impl std::error::Error for BodyParseError {}
 
 #[derive(Debug)]
 pub enum BodyEncodeError {
-    UnsupportedContentType { observed: String },
+    UnsupportedContentType {
+        observed: String,
+    },
     InvalidJson(serde_json::Error),
+    Conversion {
+        content_type: String,
+        source: lupus::ConvertError,
+    },
 }
 
 impl std::fmt::Display for BodyEncodeError {
@@ -48,6 +51,14 @@ impl std::fmt::Display for BodyEncodeError {
                 write!(f, "unsupported content type: {}", observed)
             }
             Self::InvalidJson(err) => write!(f, "failed to encode JSON body: {}", err),
+            Self::Conversion {
+                content_type,
+                source,
+            } => write!(
+                f,
+                "unable to convert response payload to '{}': {}",
+                content_type, source
+            ),
         }
     }
 }
@@ -88,20 +99,50 @@ pub fn parse_body(
 }
 
 pub fn encode_body(content_type: Option<&str>, value: Value) -> Result<Vec<u8>, BodyEncodeError> {
-    match classify_content_type(content_type) {
-        BodyFormat::Json => encode_json_body(value),
-        BodyFormat::TextPlain => encode_text_body(value),
-        BodyFormat::Unknown => {
-            // Missing content type falls back to JSON.
-            if content_type.is_none() {
-                return encode_json_body(value);
-            }
+    let content_type = content_type.unwrap_or("application/json");
+    let format = format_for_content_type(content_type)?;
 
-            Err(BodyEncodeError::UnsupportedContentType {
-                observed: content_type.unwrap_or("<missing>").to_string(),
-            })
+    let protobuf = serde_json::to_vec(&value).map_err(BodyEncodeError::InvalidJson)?;
+    let engine = lupus::Engine::with_default_codecs();
+    engine
+        .convert(
+            &protobuf,
+            lupus::Format::Protobuf,
+            format,
+            &lupus::DecodeContext,
+            &lupus::EncodeContext::default(),
+        )
+        .map_err(|err| BodyEncodeError::Conversion {
+            content_type: content_type.to_string(),
+            source: err,
+        })
+}
+
+fn format_for_content_type(content_type: &str) -> Result<lupus::Format, BodyEncodeError> {
+    let essence = content_type
+        .split(';')
+        .next()
+        .unwrap_or(content_type)
+        .trim()
+        .to_ascii_lowercase();
+
+    let format = match essence.as_str() {
+        "application/json" | "text/json" => lupus::Format::Json,
+        value if value.ends_with("+json") => lupus::Format::Json,
+        "application/xhtml+xml" => lupus::Format::Html,
+        "application/xml" | "text/xml" => lupus::Format::Xml,
+        value if value.ends_with("+xml") => lupus::Format::Xml,
+        "text/html" => lupus::Format::Html,
+        "text/plain" => lupus::Format::Text,
+        "text/csv" | "application/csv" => lupus::Format::Csv,
+        "application/x-www-form-urlencoded" => lupus::Format::HttpForm,
+        _ => {
+            return Err(BodyEncodeError::UnsupportedContentType {
+                observed: content_type.to_string(),
+            });
         }
-    }
+    };
+    Ok(format)
 }
 
 pub fn classify_content_type(content_type: Option<&str>) -> BodyFormat {
@@ -142,34 +183,6 @@ fn parse_text_body(body: &[u8]) -> Result<Option<Value>, BodyParseError> {
     }))
 }
 
-fn encode_json_body(value: Value) -> Result<Vec<u8>, BodyEncodeError> {
-    let json_val = tucana::shared::helper::value::to_json_value(value);
-    serde_json::to_vec_pretty(&json_val).map_err(BodyEncodeError::InvalidJson)
-}
-
-fn encode_text_body(value: Value) -> Result<Vec<u8>, BodyEncodeError> {
-    if let Some(text) = scalar_to_text(&value) {
-        return Ok(text.into_bytes());
-    }
-
-    // For lists/objects, return valid JSON text as the plain-text body.
-    encode_json_body(value)
-}
-
-fn scalar_to_text(value: &Value) -> Option<String> {
-    match value.kind.as_ref() {
-        Some(Kind::NullValue(_)) | None => Some("null".to_string()),
-        Some(Kind::BoolValue(v)) => Some(v.to_string()),
-        Some(Kind::StringValue(v)) => Some(v.clone()),
-        Some(Kind::NumberValue(v)) => match v.number.as_ref() {
-            Some(number_value::Number::Integer(i)) => Some(i.to_string()),
-            Some(number_value::Number::Float(f)) => Some(f.to_string()),
-            None => Some("null".to_string()),
-        },
-        _ => None,
-    }
-}
-
 fn get_content_type(headers: &HeaderMap<HeaderValue>) -> Option<&str> {
     headers.get(CONTENT_TYPE).and_then(|h| h.to_str().ok())
 }
@@ -177,7 +190,7 @@ fn get_content_type(headers: &HeaderMap<HeaderValue>) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tucana::shared::{NumberValue, Struct, Value};
+    use tucana::shared::{NumberValue, Struct, Value, number_value, value::Kind};
 
     #[test]
     fn classify_json_content_type_with_charset() {
@@ -280,7 +293,7 @@ mod tests {
     }
 
     #[test]
-    fn encode_text_body_from_struct_value_falls_back_to_json_text() {
+    fn encode_text_body_from_struct_value_flattens_fields() {
         let value = Value {
             kind: Some(Kind::StructValue(Struct {
                 fields: [(
@@ -299,8 +312,37 @@ mod tests {
         let encoded = encode_body(Some("text/plain"), value).unwrap();
         let body_text = String::from_utf8(encoded).unwrap();
 
-        assert!(body_text.contains("\"answer\""));
+        assert!(body_text.contains("answer"));
         assert!(body_text.contains("42"));
+    }
+
+    #[test]
+    fn encode_body_converts_struct_to_xml() {
+        let value = Value {
+            kind: Some(Kind::StructValue(Struct {
+                fields: [(
+                    "user".to_string(),
+                    Value {
+                        kind: Some(Kind::StringValue("Ada".to_string())),
+                    },
+                )]
+                .into_iter()
+                .collect(),
+            })),
+        };
+
+        let encoded = encode_body(Some("application/xml"), value).unwrap();
+        assert_eq!(encoded, b"<user>Ada</user>".to_vec());
+    }
+
+    #[test]
+    fn encode_missing_content_type_falls_back_to_json() {
+        let value = Value {
+            kind: Some(Kind::StringValue("hello".to_string())),
+        };
+
+        let encoded = encode_body(None, value).unwrap();
+        assert_eq!(encoded, b"\"hello\"".to_vec());
     }
 
     #[test]
@@ -309,7 +351,7 @@ mod tests {
             kind: Some(Kind::StringValue("x".to_string())),
         };
 
-        let err = encode_body(Some("application/xml"), value).unwrap_err();
+        let err = encode_body(Some("application/octet-stream"), value).unwrap_err();
         assert!(matches!(
             err,
             BodyEncodeError::UnsupportedContentType { .. }
