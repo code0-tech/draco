@@ -21,3 +21,4 @@ hyper-util = "0.1.19"
 hyper = "1.8.1"
 http-body-util = "0.1.3"
 prost = { workspace = true }
+lupus = "0.0.2"
