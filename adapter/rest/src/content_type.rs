@@ -34,7 +34,9 @@ impl std::error::Error for BodyParseError {}
 
 #[derive(Debug)]
 pub enum BodyEncodeError {
-    UnsupportedContentType { observed: String },
+    UnsupportedContentType {
+        observed: String,
+    },
     InvalidJson(serde_json::Error),
     Conversion {
         content_type: String,
