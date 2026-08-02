@@ -17,6 +17,7 @@ mod content_type;
 mod request;
 mod response;
 mod route;
+mod validation;
 
 #[tokio::main]
 async fn main() {
