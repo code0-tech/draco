@@ -13,6 +13,7 @@ use crate::auth::{authenticate_header_name, validate_flow_auth};
 use crate::content_type;
 use crate::response::{error_to_http_response, flow_execution_to_http_response};
 use crate::route::{self, RequestRoute};
+use crate::validation;
 
 pub async fn handle(
     req: Request<Incoming>,
@@ -61,6 +62,21 @@ pub async fn handle(
                 Ok(value) => value,
                 Err(response) => return Ok(response),
             };
+
+            let input_schema = route::extract_flow_setting_as_struct(&flow, "input_schema");
+            if let Err(err) =
+                validation::validate_body_against_schema(input_schema, request_body_value.as_ref())
+            {
+                log::warn!(
+                    "Request body failed input schema validation: flow_id={} error={}",
+                    flow.flow_id,
+                    err
+                );
+                return Ok(error_to_http_response(
+                    StatusCode::BAD_REQUEST,
+                    &err.to_string(),
+                ));
+            }
 
             let input = input::build_flow_input(
                 &flow,

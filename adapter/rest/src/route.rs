@@ -1,6 +1,6 @@
 use base::traits::IdentifiableFlow;
 use std::collections::HashMap;
-use tucana::shared::{ValidationFlow, value::Kind};
+use tucana::shared::{Struct, ValidationFlow, value::Kind};
 
 pub struct RequestRoute {
     pub url: String,
@@ -275,6 +275,64 @@ fn read_balanced_group(chars: &[char], start: usize) -> Result<(String, usize), 
     }
 
     Err(String::from("unclosed parameter regex group"))
+}
+
+pub fn extract_flow_setting_as_struct<'a>(
+    flow: &'a ValidationFlow,
+    flow_setting_id: &str,
+) -> Option<&'a Struct> {
+    let setting = match flow
+        .settings
+        .iter()
+        .find(|setting| setting.flow_setting_id == flow_setting_id)
+    {
+        Some(setting) => setting,
+        None => {
+            log::debug!(
+                "flow setting is missing: flow_id={} flow_setting_id={}",
+                flow.flow_id,
+                flow_setting_id
+            );
+            return None;
+        }
+    };
+
+    let value = match setting.value.as_ref() {
+        Some(value) => value,
+        None => {
+            log::debug!(
+                "flow setting has no value: flow_id={} flow_setting_id={}",
+                flow.flow_id,
+                flow_setting_id
+            );
+            return None;
+        }
+    };
+
+    let kind = match value.kind.as_ref() {
+        Some(kind) => kind,
+        None => {
+            log::debug!(
+                "flow setting has no kind: flow_id={} flow_setting_id={}",
+                flow.flow_id,
+                flow_setting_id
+            );
+            return None;
+        }
+    };
+
+    match kind {
+        Kind::StructValue(value) => Some(value),
+        _ => {
+            log::debug!(
+                "flow setting has non-struct kind: flow_id={} flow_setting_id={} kind={:?}",
+                flow.flow_id,
+                flow_setting_id,
+                kind
+            );
+            None
+        }
+    }
 }
 
 fn extract_flow_setting_as_string<'a>(
